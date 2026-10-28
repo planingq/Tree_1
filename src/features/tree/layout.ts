@@ -80,7 +80,7 @@ export function compactTreeLayout(
       horizontal
         ? { x: -rank - CARD_WIDTH, y: cross - height / 2 }
         : {
-            x: cross - CARD_WIDTH / 2,
+            x: (cursor - start - s / 2) * crossStep - CARD_WIDTH / 2,
             y: upward ? totalHeight - rank - height : rank,
           },
     );

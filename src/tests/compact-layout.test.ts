@@ -49,6 +49,11 @@ it("يرتب الأخوة بحسب ترتيبهم ويعالج فروعًا عم
   const p = compactTreeLayout(ps, true, false, 28);
   expect(p.get("first")!.y).toBeLessThan(p.get("second")!.y);
   expect(p.get("second")!.y).toBeLessThan(p.get("third")!.y);
+  for (const upward of [false, true]) {
+    const v = compactTreeLayout(ps, false, upward, 28);
+    expect(v.get("first")!.x).toBeGreaterThan(v.get("second")!.x);
+    expect(v.get("second")!.x).toBeGreaterThan(v.get("third")!.x);
+  }
   const deep = Array.from({ length: 10000 }, (_, i) =>
     person(String(i), i ? String(i - 1) : ""),
   );
