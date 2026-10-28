@@ -10,7 +10,7 @@ with sync_playwright() as p:
  page.evaluate('(people)=>localStorage.setItem("judhur-demo-family-v1",JSON.stringify(people))',people)
  page.reload(wait_until='networkidle');page.get_by_role('button',name='الدخول إلى النسخة التجريبية').click()
  page.locator('.person-card').first.wait_for();page.wait_for_timeout(500)
- transform=page.locator('.react-flow__viewport').get_attribute('style');assert 'scale(0.9)' in transform,transform
+ transform=page.locator('.react-flow__viewport').get_attribute('style');assert 'scale(1)' in transform,transform
  page.get_by_role('textbox',name='البحث في الشجرة').fill('009');page.get_by_role('button',name='بحث',exact=True).click()
  page.locator('.person-card.highlight .person-main').click()
  page.get_by_role('button',name='عرض المختار وأسلافه إلى الجيل 1').click()
@@ -24,7 +24,7 @@ with sync_playwright() as p:
  page.get_by_role('button',name='تصدير وطباعة').click()
  dialog=page.get_by_role('dialog');dialog.get_by_label('حجم الورق').select_option('A0');dialog.get_by_label('توزيع الشجرة').select_option('fit')
  with page.expect_popup() as popup_info:dialog.get_by_role('button',name='فتح معاينة الطباعة / PDF').click()
- popup=popup_info.value;popup.wait_for_load_state();assert popup.locator('#family-drawing > g').count()==9;assert popup.locator('.sheet').count()==1
+ popup=popup_info.value;popup.wait_for_load_state();assert popup.locator('svg [data-person]').count()==9;assert popup.locator('.sheet').count()==1
  assert '<script>' not in popup.content()
  popup.pdf(path='/tmp/tree-a0-test.pdf',prefer_css_page_size=True,print_background=True)
  assert open('/tmp/tree-a0-test.pdf','rb').read(5)==b'%PDF-'

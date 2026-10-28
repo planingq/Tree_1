@@ -1573,3 +1573,96 @@ td small {
 .person-main {
   min-height: 76px;
 }
+.tree-view-options {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+  padding: 14px 22px;
+  background: #f4f8f0;
+  border-bottom: 1px solid #d9e4d4;
+}
+.tree-view-options label {
+  font-size: 11px;
+  min-width: 90px;
+}
+.tree-view-options select {
+  padding: 5px 9px;
+}
+.tree-view-options small {
+  width: 100%;
+  color: #526d48;
+}
+.person-main {
+  text-align: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 16px 12px 8px;
+  flex: 1;
+  width: 100%;
+}
+.person-main > span:last-child {
+  flex: 1;
+}
+.person-main strong {
+  display: block;
+  -webkit-line-clamp: unset;
+  font-size: 17px;
+  line-height: 24px;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  color: #204b32;
+}
+.person-main small {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 11px;
+}
+.person-card {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-color: #a2b99a;
+  border-top-width: 4px;
+  box-shadow: 0 5px 14px #23472c18;
+}
+.person-counts {
+  flex-shrink: 0;
+  margin: 0 12px;
+  padding: 10px 0;
+  font-size: 10px;
+  min-height: 38px;
+}
+.person-card.highlight {
+  outline: 4px solid #206740;
+  background: #e7f5dd;
+  box-shadow:
+    0 0 0 8px #89b36066,
+    0 9px 28px #17472844;
+  border-color: #206740;
+  z-index: 5;
+}
+.person-card.highlight strong {
+  color: #124524;
+}
+.react-flow__edge-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.tree-canvas {
+  background: #f5f9f1;
+  min-height: 650px;
+}
+.tree-toolbar .toolbar-actions {
+  flex-wrap: wrap;
+}
+@media (max-width: 650px) {
+  .tree-view-options {
+    padding: 12px;
+  }
+  .tree-canvas {
+    min-height: 560px;
+  }
+}

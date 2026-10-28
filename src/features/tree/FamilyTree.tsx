@@ -1,3 +1,4 @@
+import { CARD_WIDTH, cardHeight, generationRange } from "./presentation";
 import ExportControls from "./ExportControls";
 import { ancestorPath } from "./export";
 import { memo, useEffect, useMemo, useState } from "react";
@@ -27,6 +28,7 @@ import {
 import "@xyflow/react/dist/style.css";
 type CardData = {
   person: Person;
+  fullName: string;
   direct: number;
   total: number;
   horizontal: boolean;
@@ -41,6 +43,7 @@ const PersonCard = memo(function PersonCard({
 }: NodeProps<Node<CardData>>) {
   return (
     <div
+      style={{ width: CARD_WIDTH, height: cardHeight(data.fullName) }}
       className={`person-card ${data.selected ? "highlight" : ""} ${data.person.status === 2 ? "deceased" : ""}`}
     >
       <Handle
@@ -48,13 +51,9 @@ const PersonCard = memo(function PersonCard({
         position={data.horizontal ? Position.Right : Position.Top}
       />
       <button className="person-main" onClick={data.details}>
-        <span className="avatar">
-          <UserRound size={21} />
-        </span>
         <span>
-          <strong>{data.person.name}</strong>
+          <strong>{data.fullName}</strong>
           <small>
-            #{data.person.id} ·{" "}
             <span className={data.person.status === 1 ? "alive-label" : ""}>
               {data.person.status === 1 ? "على قيد الحياة" : "رحمه الله"}
             </span>
@@ -92,19 +91,29 @@ function Canvas({
   onSelect,
   ancestorId,
   onAncestorChange,
+  names,
 }: {
   people: Person[];
   family: FamilyAnalysis;
   onSelect: (p: Person) => void;
   ancestorId: string;
   onAncestorChange: (id: string) => void;
+  names: Map<string, string>;
 }) {
   const [horizontal, setHorizontal] = useState(false),
     [collapsed, setCollapsed] = useState<Set<string>>(new Set()),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState(""),
-    [notice, setNotice] = useState("");
+    [notice, setNotice] = useState(""),
+    [fromGeneration, setFromGeneration] = useState(1),
+    [toGeneration, setToGeneration] = useState(0),
+    [gap, setGap] = useState(35),
+    [mouseMode, setMouseMode] = useState<"pan" | "zoom">("pan");
   const flow = useReactFlow();
+  useEffect(() => {
+    setFromGeneration(1);
+    setToGeneration(0);
+  }, [ancestorId, people]);
   const ancestors = useMemo(
     () => ancestorPath(ancestorId, family),
     [ancestorId, family],
@@ -127,34 +136,52 @@ function Canvas({
         );
       else if (!collapsed.has(p.id)) queue.push(...family.children.get(p.id)!);
     }
+    const filtered = generationRange(
+      visible,
+      family,
+      fromGeneration,
+      toGeneration || family.generations.length,
+    );
     const graph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
     graph.setGraph({
       rankdir: horizontal ? "RL" : "TB",
-      nodesep: 30,
-      ranksep: 65,
+      nodesep: Math.max(16, gap / 2),
+      ranksep: gap,
     });
-    visible.forEach((p) => graph.setNode(p.id, { width: 240, height: 126 }));
-    const ids = new Set(visible.map((p) => p.id));
-    const edges = visible
+    filtered.forEach((p) =>
+      graph.setNode(p.id, {
+        width: CARD_WIDTH,
+        height: cardHeight(names.get(p.id) ?? p.name),
+      }),
+    );
+    const ids = new Set(filtered.map((p) => p.id));
+    const edges = filtered
       .filter((p) => ids.has(p.parentId))
       .map((p) => ({
         id: `${p.parentId}-${p.id}`,
         source: p.parentId,
         target: p.id,
         type: "smoothstep",
-        style: { stroke: "#91ad9e", strokeWidth: 1.7 },
+        pathOptions: { borderRadius: 18, offset: Math.min(14, gap / 3) },
+        style: { stroke: "#6b927b", strokeWidth: 2.1 },
       }));
     edges.forEach((e) => graph.setEdge(e.source, e.target));
     dagre.layout(graph);
-    const nodes = visible.map((p) => {
+    const nodes = filtered.map((p) => {
       const pos = graph.node(p.id),
         stat = family.stats.get(p.id)!;
       return {
         id: p.id,
         type: "person",
-        position: { x: pos.x - 120, y: pos.y - 63 },
+        position: {
+          x: pos.x - CARD_WIDTH / 2,
+          y: pos.y - cardHeight(names.get(p.id) ?? p.name) / 2,
+        },
+        width: CARD_WIDTH,
+        height: cardHeight(names.get(p.id) ?? p.name),
         data: {
           person: p,
+          fullName: names.get(p.id) ?? p.name,
           ...stat,
           horizontal,
           collapsed: !ancestorId && collapsed.has(p.id),
@@ -166,7 +193,10 @@ function Canvas({
               next.has(p.id) ? next.delete(p.id) : next.add(p.id);
               return next;
             }),
-          details: () => onSelect(p),
+          details: () => {
+            setSelected(p.id);
+            onSelect(p);
+          },
         },
       };
     });
@@ -179,6 +209,10 @@ function Canvas({
     ancestorId,
     ancestors,
     ancestorIds,
+    fromGeneration,
+    toGeneration,
+    gap,
+    names,
   ]);
   const edges = layout.edges;
   const nodes = useMemo(
@@ -194,13 +228,26 @@ function Canvas({
       const first =
         layout.nodes.find((n) => n.id === selected) ?? layout.nodes[0];
       if (first)
-        void flow.setCenter(first.position.x + 120, first.position.y + 100, {
-          zoom: selected ? 1 : 0.9,
-          duration: 250,
-        });
+        void flow.setCenter(
+          first.position.x + CARD_WIDTH / 2,
+          first.position.y + cardHeight(first.data.fullName) / 2,
+          {
+            zoom: 1,
+            duration: 250,
+          },
+        );
     }, 100);
     return () => clearTimeout(timer);
-  }, [horizontal, people, ancestorId, selected, flow]);
+  }, [
+    horizontal,
+    people,
+    ancestorId,
+    selected,
+    fromGeneration,
+    toGeneration,
+    gap,
+    flow,
+  ]);
   function search() {
     const match =
       family.byId.get(query.trim()) ??
@@ -212,6 +259,8 @@ function Canvas({
     setNotice("");
     onAncestorChange("");
     setSelected(match.id);
+    setFromGeneration(1);
+    setToGeneration(0);
     setCollapsed((old) => {
       const next = new Set(old);
       let parent = match.parentId;
@@ -226,10 +275,14 @@ function Canvas({
     if (!selected) return;
     const n = nodes.find((n) => n.id === selected);
     if (n)
-      void flow.setCenter(n.position.x + 120, n.position.y + 63, {
-        zoom: 1,
-        duration: 450,
-      });
+      void flow.setCenter(
+        n.position.x + CARD_WIDTH / 2,
+        n.position.y + cardHeight(n.data.fullName) / 2,
+        {
+          zoom: 1,
+          duration: 450,
+        },
+      );
   }, [selected, nodes, flow]);
   return (
     <>
@@ -268,8 +321,8 @@ function Canvas({
               const first = nodes.find((n) => n.id === selected) ?? nodes[0];
               if (first)
                 void flow.setCenter(
-                  first.position.x + 120,
-                  first.position.y + 63,
+                  first.position.x + CARD_WIDTH / 2,
+                  first.position.y + cardHeight(first.data.fullName) / 2,
                   { zoom: 1, duration: 250 },
                 );
             }}
@@ -285,6 +338,73 @@ function Canvas({
           </button>
         </div>
       </div>
+      <div className="tree-view-options">
+        <label>
+          من الجيل
+          <select
+            aria-label="من الجيل"
+            value={fromGeneration}
+            onChange={(e) => {
+              setFromGeneration(Number(e.target.value));
+              setToGeneration(0);
+            }}
+          >
+            {family.generations.map((_, i) => (
+              <option key={i} value={i + 1}>
+                {i + 1}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          إلى الجيل
+          <select
+            aria-label="إلى الجيل"
+            value={toGeneration}
+            onChange={(e) => setToGeneration(Number(e.target.value))}
+          >
+            <option value={0}>كل الأجيال</option>
+            {family.generations.map((_, i) =>
+              i + 1 >= fromGeneration ? (
+                <option key={i} value={i + 1}>
+                  {i + 1}
+                </option>
+              ) : null,
+            )}
+          </select>
+        </label>
+        <label>
+          امتداد الخطوط
+          <input
+            aria-label="امتداد الخطوط"
+            type="range"
+            min="24"
+            max="120"
+            step="4"
+            value={gap}
+            onChange={(e) => setGap(Number(e.target.value))}
+          />
+        </label>
+        <div className="toolbar-actions">
+          <button
+            className={mouseMode === "pan" ? "active" : ""}
+            onClick={() => setMouseMode("pan")}
+          >
+            وضع التحريك
+          </button>
+          <button
+            className={mouseMode === "zoom" ? "active" : ""}
+            onClick={() => setMouseMode("zoom")}
+          >
+            وضع الزوم
+          </button>
+        </div>
+        <small>
+          {mouseMode === "pan"
+            ? "اسحب بالماوس في أي اتجاه؛ عجلة الماوس للتحريك وShift للحركة الأفقية. أزرار + و− متاحة دائمًا."
+            : "عجلة الماوس للتكبير والتصغير، والسحب للتحريك. اللمس بإصبعين متاح."}
+        </small>
+      </div>
       <div className="tree-extra-toolbar">
         <span className="muted">
           {nodes.length} فردًا ظاهرًا · حرّك الرسم لاستكشاف الفروع أو استخدم عرض
@@ -296,6 +416,8 @@ function Canvas({
           people={people}
           family={family}
           horizontal={horizontal}
+          names={names}
+          gap={gap}
         />
       </div>
       {ancestorId && (
@@ -325,8 +447,14 @@ function Canvas({
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
-          defaultViewport={{ x: 0, y: 0, zoom: 0.9 }}
-          minZoom={0.08}
+          defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+          panOnDrag
+          panOnScroll={mouseMode === "pan"}
+          zoomOnScroll={mouseMode === "zoom"}
+          zoomOnPinch
+          zoomOnDoubleClick={false}
+          preventScrolling
+          minZoom={0.01}
           maxZoom={1.8}
           onlyRenderVisibleElements
           nodesDraggable={false}
@@ -354,6 +482,7 @@ export default function FamilyTree(props: {
   onSelect: (p: Person) => void;
   ancestorId: string;
   onAncestorChange: (id: string) => void;
+  names: Map<string, string>;
 }) {
   return (
     <ReactFlowProvider>

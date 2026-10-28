@@ -1,3 +1,4 @@
+import { familyNames } from "./features/tree/presentation";
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import {
   GitFork,
@@ -109,6 +110,7 @@ export default function App() {
     [ancestorId, setAncestorId] = useState(""),
     [reset, setReset] = useState(false);
   const family = useMemo(() => analyzeFamily(people), [people]);
+  const names = useMemo(() => familyNames(family), [family]);
   const selectPerson = useCallback((p: Person) => setSelected(p), []);
   const update = useCallback((next: Person[]) => {
     setPeople(next);
@@ -346,6 +348,7 @@ export default function App() {
                     </span>
                   </div>
                   <FamilyTree
+                    names={names}
                     ancestorId={ancestorId}
                     onAncestorChange={setAncestorId}
                     family={family}
@@ -481,8 +484,8 @@ export default function App() {
                 <X />
               </button>
             </div>
-            <span className="eyebrow">بطاقة فرد العائلة · #{selected.id}</span>
-            <h2 id="detail-title">{selected.name}</h2>
+            <span className="eyebrow">بطاقة فرد العائلة</span>
+            <h2 id="detail-title">{names.get(selected.id) ?? selected.name}</h2>
             <span className={`badge ${selected.status === 2 ? "neutral" : ""}`}>
               {selected.status === 1 ? "على قيد الحياة" : "متوفى — رحمه الله"}
             </span>

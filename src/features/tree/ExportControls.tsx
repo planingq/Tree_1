@@ -1,3 +1,4 @@
+import { CARD_WIDTH, cardHeight, generationRange } from "./presentation";
 import { useMemo, useState } from "react";
 import dagre from "@dagrejs/dagre";
 import { Download, Printer, X } from "lucide-react";
@@ -12,54 +13,86 @@ export default function ExportControls({
   people,
   family,
   horizontal,
+  names,
+  gap,
 }: {
   nodes: PrintNode[];
   edges: { source: string; target: string }[];
   people: Person[];
   family: FamilyAnalysis;
   horizontal: boolean;
+  names: Map<string, string>;
+  gap: number;
 }) {
   const [open, setOpen] = useState(false),
     [scope, setScope] = useState("visible"),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [fromGeneration, setFromGeneration] = useState(1),
+    [toGeneration, setToGeneration] = useState(0);
   const [options, setOptions] = useState<PrintOptions>({
     paper: "A3",
     landscape: true,
     mode: "tiles",
     cardWidth: 65,
   });
-  const targetPeople =
-    scope === "all" ? people : nodes.map((n) => n.data.person);
+  const targetPeople = useMemo(
+    () =>
+      generationRange(
+        scope === "all" ? people : nodes.map((n) => n.data.person),
+        family,
+        fromGeneration,
+        toGeneration || family.generations.length,
+      ),
+    [scope, people, nodes, family, fromGeneration, toGeneration],
+  );
   const printData = useMemo(() => {
-    if (scope === "visible") return { nodes, edges };
+    const ids = new Set(targetPeople.map((p) => p.id));
+    if (scope === "visible")
+      return {
+        nodes: nodes.filter((n) => ids.has(n.id)),
+        edges: edges.filter((e) => ids.has(e.source) && ids.has(e.target)),
+      };
     const graph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
     graph.setGraph({
       rankdir: horizontal ? "RL" : "TB",
-      nodesep: 30,
-      ranksep: 65,
+      nodesep: Math.max(16, gap / 2),
+      ranksep: gap,
     });
     const ordered = [...family.roots];
     for (let i = 0; i < ordered.length; i++)
       ordered.push(...family.children.get(ordered[i].id)!);
-    ordered.forEach((p) => graph.setNode(p.id, { width: 240, height: 126 }));
-    const allEdges = ordered
-      .filter((p) => family.byId.has(p.parentId))
+    const filtered = ordered.filter((p) => ids.has(p.id));
+    filtered.forEach((p) =>
+      graph.setNode(p.id, {
+        width: CARD_WIDTH,
+        height: cardHeight(names.get(p.id) ?? p.name),
+      }),
+    );
+    const allEdges = filtered
+      .filter((p) => ids.has(p.parentId))
       .map((p) => ({ source: p.parentId, target: p.id }));
     allEdges.forEach((e) => graph.setEdge(e.source, e.target));
     dagre.layout(graph);
     return {
-      nodes: ordered.map((p) => {
+      nodes: filtered.map((p) => {
         const position = graph.node(p.id);
         return {
           id: p.id,
-          position: { x: position.x - 120, y: position.y - 63 },
-          data: { person: p, ...family.stats.get(p.id)! },
+          position: {
+            x: position.x - CARD_WIDTH / 2,
+            y: position.y - cardHeight(names.get(p.id) ?? p.name) / 2,
+          },
+          data: {
+            person: p,
+            fullName: names.get(p.id) ?? p.name,
+            ...family.stats.get(p.id)!,
+          },
         };
       }),
       edges: allEdges,
     };
-  }, [scope, nodes, edges, people, family, horizontal]);
+  }, [scope, nodes, edges, family, horizontal, targetPeople, names, gap]);
   return (
     <>
       <button
@@ -104,6 +137,40 @@ export default function ExportControls({
                 </select>
               </label>
               <label>
+                من الجيل للطباعة
+                <select
+                  aria-label="من الجيل للطباعة"
+                  value={fromGeneration}
+                  onChange={(e) => {
+                    setFromGeneration(Number(e.target.value));
+                    setToGeneration(0);
+                  }}
+                >
+                  {family.generations.map((_, i) => (
+                    <option key={i} value={i + 1}>
+                      {i + 1}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                إلى الجيل للطباعة
+                <select
+                  aria-label="إلى الجيل للطباعة"
+                  value={toGeneration}
+                  onChange={(e) => setToGeneration(Number(e.target.value))}
+                >
+                  <option value={0}>كل الأجيال</option>
+                  {family.generations.map((_, i) =>
+                    i + 1 >= fromGeneration ? (
+                      <option key={i} value={i + 1}>
+                        {i + 1}
+                      </option>
+                    ) : null,
+                  )}
+                </select>
+              </label>
+              <label>
                 حجم الورق
                 <select
                   value={options.paper}
@@ -115,10 +182,52 @@ export default function ExportControls({
                   }
                 >
                   {Object.keys(paperSizes).map((p) => (
-                    <option key={p}>{p}</option>
+                    <option key={p} value={p}>
+                      {p === "poster"
+                        ? "لوحة 100 × 200 سم"
+                        : p === "custom"
+                          ? "مقاس مخصص (مم)"
+                          : p}
+                    </option>
                   ))}
                 </select>
               </label>
+              {options.paper === "custom" && (
+                <>
+                  <label>
+                    عرض الورق (مم)
+                    <input
+                      aria-label="عرض الورق (مم)"
+                      type="number"
+                      min="100"
+                      max="5000"
+                      value={options.customWidth ?? 1000}
+                      onChange={(e) =>
+                        setOptions({
+                          ...options,
+                          customWidth: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    ارتفاع الورق (مم)
+                    <input
+                      aria-label="ارتفاع الورق (مم)"
+                      type="number"
+                      min="100"
+                      max="5000"
+                      value={options.customHeight ?? 2000}
+                      onChange={(e) =>
+                        setOptions({
+                          ...options,
+                          customHeight: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                </>
+              )}
               <label>
                 اتجاه الورقة
                 <select
@@ -145,7 +254,7 @@ export default function ExportControls({
                     })
                   }
                 >
-                  <option value="tiles">حجم مقروء على صفحات متتابعة</option>
+                  <option value="tiles">صفحات عائلية دون تقسيم البطاقات</option>
                   <option value="fit">الشجرة كاملة في صفحة واحدة</option>
                 </select>
               </label>
@@ -169,9 +278,11 @@ export default function ExportControls({
               )}
             </div>
             <p className="notice">
-              للطباعة الكبيرة اختر A2 أو A1 أو A0. وضع الصفحات المتتابعة يحافظ
-              على حجم الأسماء ويمكن جمع الصفحات حسب أرقام الصف والعمود. ملاءمة
-              الصفحة قد تصغّر الأسماء عند كثرة الأفراد.
+              المحاذاة تلقائيًا لليمين للشجرة الأفقية، وللأعلى للعمودية. الصفحات
+              العائلية تجمع الأب مع أبنائه المباشرين دون قص البطاقات؛ عند كثرة
+              الأبناء يتكرر الأب على صفحات المتابعة، وتظهر الأحفاد في صفحات
+              آبائهم. استخدم ورقًا أكبر أو نطاق أجيال أصغر لجمع فرع أكبر في ورقة
+              واحدة.
             </p>
             <p className="muted">
               PDF يحفظ الرسم بخطوط ونصوص قابلة للتكبير. بعد فتح المعاينة اختر
@@ -194,7 +305,10 @@ export default function ExportControls({
                       printData.nodes,
                       printData.edges,
                       horizontal,
-                      options,
+                      {
+                        ...options,
+                        generationLabel: `الأجيال ${fromGeneration} إلى ${toGeneration || family.generations.length}`,
+                      },
                     );
                     const popup = window.open("", "_blank");
                     if (!popup)
