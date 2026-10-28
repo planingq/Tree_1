@@ -137,3 +137,51 @@ it("يدعم 4A0 والمقاس المخصص ويرفض أبعادًا غير ص
     }),
   ).toThrow();
 });
+
+it("يفصل الاسم الأول في الرسم عن الاسم الكامل في التفاصيل ويختار اتجاه الصعود", async () => {
+  const { firstName, treeDirection } =
+    await import("../features/tree/presentation");
+  expect(firstName("محمد عبدالله السالم")).toBe("محمد");
+  expect(firstName("عبد الرحمن محمد")).toBe("عبد الرحمن");
+  expect(treeDirection(false, true)).toBe("BT");
+  expect(treeDirection(false, false)).toBe("TB");
+  expect(treeDirection(true, false)).toBe("RL");
+});
+it("يطبع الشجرة الصاعدة من الأسفل للأعلى مع بقاء البطاقات كاملة", () => {
+  const ps = [
+      person("root", "محمد السالم"),
+      person("child", "خالد السالم", "root"),
+    ],
+    f = analyzeFamily(ps);
+  const nodes = ps.map((p, i) => ({
+    id: p.id,
+    position: { x: 0, y: i ? 0 : 240 },
+    data: {
+      person: p,
+      displayName: p.name.split(" ")[0],
+      fullName: "اسم كامل مخفي في الرسم",
+      ...f.stats.get(p.id)!,
+    },
+  }));
+  const edges = [{ source: "root", target: "child" }];
+  for (const mode of ["fit", "tiles"] as const) {
+    const r = buildPrintDocument(
+      nodes,
+      edges,
+      false,
+      { paper: "A3", landscape: false, mode, cardWidth: 65 },
+      true,
+    );
+    expect(r.html).toContain("محاذاة للأسفل");
+    expect(r.html).not.toContain("اسم كامل مخفي في الرسم");
+    for (const page of r.pages) {
+      expect(
+        page.nodes.find((n) => n.id === "root")!.position.y,
+      ).toBeGreaterThan(page.nodes.find((n) => n.id === "child")!.position.y);
+    }
+    if (mode === "fit")
+      expect(r.pages[0].viewY + r.plan.usableH / r.plan.scale).toBeCloseTo(
+        240 + cardHeight("محمد") + 8,
+      );
+  }
+});

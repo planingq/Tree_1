@@ -1,7 +1,7 @@
 import type { Person } from "../../types";
 import type { FamilyAnalysis } from "../../utils/family";
-export const CARD_WIDTH = 280;
-export function wrapName(name: string, limit = 26) {
+export const CARD_WIDTH = 180;
+export function wrapName(name: string, limit = 18) {
   const lines: string[] = [""];
   for (const word of name.split(/\s+/)) {
     const last = lines.length - 1;
@@ -12,7 +12,7 @@ export function wrapName(name: string, limit = 26) {
   return lines;
 }
 export function cardHeight(name: string) {
-  return Math.max(172, wrapName(name).length * 24 + 100);
+  return Math.max(108, wrapName(name).length * 24 + 76);
 }
 export function familyNames(family: FamilyAnalysis) {
   const names = new Map<string, string>(),
@@ -46,3 +46,12 @@ export function generationRange(
     return generation >= from && generation <= to;
   });
 }
+
+export const firstName = (name: string) => {
+  const words = name.trim().split(/\s+/);
+  return ["عبد", "أبو", "ابو", "أم", "ام"].includes(words[0]) && words[1]
+    ? words.slice(0, 2).join(" ")
+    : words[0] || name;
+};
+export const treeDirection = (horizontal: boolean, upward = false) =>
+  horizontal ? "RL" : upward ? "BT" : "TB";

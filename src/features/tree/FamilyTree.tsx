@@ -1,4 +1,10 @@
-import { CARD_WIDTH, cardHeight, generationRange } from "./presentation";
+import {
+  CARD_WIDTH,
+  cardHeight,
+  generationRange,
+  firstName,
+  treeDirection,
+} from "./presentation";
 import ExportControls from "./ExportControls";
 import { ancestorPath } from "./export";
 import { memo, useEffect, useMemo, useState } from "react";
@@ -23,12 +29,15 @@ import {
   Maximize,
   ChevronDown,
   ChevronUp,
-  UserRound,
+  Sprout,
 } from "lucide-react";
 import "@xyflow/react/dist/style.css";
 type CardData = {
   person: Person;
   fullName: string;
+  displayName: string;
+  upward: boolean;
+  root: boolean;
   direct: number;
   total: number;
   horizontal: boolean;
@@ -43,16 +52,22 @@ const PersonCard = memo(function PersonCard({
 }: NodeProps<Node<CardData>>) {
   return (
     <div
-      style={{ width: CARD_WIDTH, height: cardHeight(data.fullName) }}
-      className={`person-card ${data.selected ? "highlight" : ""} ${data.person.status === 2 ? "deceased" : ""}`}
+      style={{ width: CARD_WIDTH, height: cardHeight(data.displayName) }}
+      className={`person-card ${data.upward ? "upward-card" : ""} ${data.selected ? "highlight" : ""} ${data.person.status === 2 ? "deceased" : ""}`}
     >
       <Handle
         type="target"
-        position={data.horizontal ? Position.Right : Position.Top}
+        position={
+          data.horizontal
+            ? Position.Right
+            : data.upward
+              ? Position.Bottom
+              : Position.Top
+        }
       />
       <button className="person-main" onClick={data.details}>
         <span>
-          <strong>{data.fullName}</strong>
+          <strong>{data.displayName}</strong>
           <small>
             <span className={data.person.status === 1 ? "alive-label" : ""}>
               {data.person.status === 1 ? "على قيد الحياة" : "رحمه الله"}
@@ -77,9 +92,20 @@ const PersonCard = memo(function PersonCard({
           {data.collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
         </button>
       )}
+      {data.upward && data.root && (
+        <span className="root-sprout" aria-hidden="true">
+          <Sprout size={48} />
+        </span>
+      )}
       <Handle
         type="source"
-        position={data.horizontal ? Position.Left : Position.Bottom}
+        position={
+          data.horizontal
+            ? Position.Left
+            : data.upward
+              ? Position.Top
+              : Position.Bottom
+        }
       />
     </div>
   );
@@ -101,6 +127,7 @@ function Canvas({
   names: Map<string, string>;
 }) {
   const [horizontal, setHorizontal] = useState(false),
+    [upward, setUpward] = useState(false),
     [collapsed, setCollapsed] = useState<Set<string>>(new Set()),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState(""),
@@ -144,14 +171,14 @@ function Canvas({
     );
     const graph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
     graph.setGraph({
-      rankdir: horizontal ? "RL" : "TB",
+      rankdir: treeDirection(horizontal, upward),
       nodesep: Math.max(16, gap / 2),
       ranksep: gap,
     });
     filtered.forEach((p) =>
       graph.setNode(p.id, {
         width: CARD_WIDTH,
-        height: cardHeight(names.get(p.id) ?? p.name),
+        height: cardHeight(firstName(p.name)),
       }),
     );
     const ids = new Set(filtered.map((p) => p.id));
@@ -161,9 +188,14 @@ function Canvas({
         id: `${p.parentId}-${p.id}`,
         source: p.parentId,
         target: p.id,
-        type: "smoothstep",
+        type: upward ? "default" : "smoothstep",
         pathOptions: { borderRadius: 18, offset: Math.min(14, gap / 3) },
-        style: { stroke: "#6b927b", strokeWidth: 2.1 },
+        style: {
+          stroke: upward ? "#67874c" : "#6b927b",
+          strokeWidth: upward
+            ? Math.max(2, 5 - (family.depth.get(p.id) ?? 0) * 0.6)
+            : 2.1,
+        },
       }));
     edges.forEach((e) => graph.setEdge(e.source, e.target));
     dagre.layout(graph);
@@ -175,13 +207,16 @@ function Canvas({
         type: "person",
         position: {
           x: pos.x - CARD_WIDTH / 2,
-          y: pos.y - cardHeight(names.get(p.id) ?? p.name) / 2,
+          y: pos.y - cardHeight(firstName(p.name)) / 2,
         },
         width: CARD_WIDTH,
-        height: cardHeight(names.get(p.id) ?? p.name),
+        height: cardHeight(firstName(p.name)),
         data: {
           person: p,
           fullName: names.get(p.id) ?? p.name,
+          displayName: firstName(p.name),
+          upward,
+          root: !ids.has(p.parentId),
           ...stat,
           horizontal,
           collapsed: !ancestorId && collapsed.has(p.id),
@@ -205,6 +240,7 @@ function Canvas({
     family,
     collapsed,
     horizontal,
+    upward,
     onSelect,
     ancestorId,
     ancestors,
@@ -230,7 +266,7 @@ function Canvas({
       if (first)
         void flow.setCenter(
           first.position.x + CARD_WIDTH / 2,
-          first.position.y + cardHeight(first.data.fullName) / 2,
+          first.position.y + cardHeight(first.data.displayName) / 2,
           {
             zoom: 1,
             duration: 250,
@@ -240,6 +276,7 @@ function Canvas({
     return () => clearTimeout(timer);
   }, [
     horizontal,
+    upward,
     people,
     ancestorId,
     selected,
@@ -277,7 +314,7 @@ function Canvas({
     if (n)
       void flow.setCenter(
         n.position.x + CARD_WIDTH / 2,
-        n.position.y + cardHeight(n.data.fullName) / 2,
+        n.position.y + cardHeight(n.data.displayName) / 2,
         {
           zoom: 1,
           duration: 450,
@@ -305,16 +342,31 @@ function Canvas({
         </form>
         <div className="toolbar-actions">
           <button
-            className={!horizontal ? "active" : ""}
-            onClick={() => setHorizontal(false)}
+            className={!horizontal && !upward ? "active" : ""}
+            onClick={() => {
+              setHorizontal(false);
+              setUpward(false);
+            }}
           >
             <Rows3 size={16} /> عمودي
           </button>
           <button
             className={horizontal ? "active" : ""}
-            onClick={() => setHorizontal(true)}
+            onClick={() => {
+              setHorizontal(true);
+              setUpward(false);
+            }}
           >
             <Columns3 size={16} /> أفقي
+          </button>
+          <button
+            className={upward ? "active" : ""}
+            onClick={() => {
+              setHorizontal(false);
+              setUpward(true);
+            }}
+          >
+            <Sprout size={17} /> شجرة صاعدة
           </button>
           <button
             onClick={() => {
@@ -322,7 +374,7 @@ function Canvas({
               if (first)
                 void flow.setCenter(
                   first.position.x + CARD_WIDTH / 2,
-                  first.position.y + cardHeight(first.data.fullName) / 2,
+                  first.position.y + cardHeight(first.data.displayName) / 2,
                   { zoom: 1, duration: 250 },
                 );
             }}
@@ -416,6 +468,7 @@ function Canvas({
           people={people}
           family={family}
           horizontal={horizontal}
+          upward={upward}
           names={names}
           gap={gap}
         />
@@ -426,7 +479,9 @@ function Canvas({
             <strong>مسار أسلاف {family.byId.get(ancestorId)?.name}</strong>
             <p>
               من الجيل {(family.depth.get(ancestorId) ?? 0) + 1} إلى الجيل 1 ·
-              الشخص المختار وآباؤه فقط؛ يبقى الجذر في أعلى الرسم أو يمينه.
+              الشخص المختار وآباؤه فقط؛ الجذر{" "}
+              {upward ? "أسفل الرسم" : horizontal ? "يمين الرسم" : "أعلى الرسم"}
+              .
             </p>
           </div>
           <button
@@ -442,7 +497,7 @@ function Canvas({
           {notice}
         </p>
       )}
-      <div className="tree-canvas" dir="ltr">
+      <div className={`tree-canvas ${upward ? "upward-canvas" : ""}`} dir="ltr">
         <ReactFlow
           nodes={nodes}
           edges={edges}

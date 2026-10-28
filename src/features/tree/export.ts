@@ -73,10 +73,12 @@ export type PrintNode = {
     direct: number;
     total: number;
     fullName?: string;
+    displayName?: string;
     selected?: boolean;
   };
 };
-const nameOf = (n: PrintNode) => n.data.fullName ?? n.data.person.name;
+const nameOf = (n: PrintNode) =>
+  n.data.displayName ?? n.data.fullName ?? n.data.person.name;
 export type FamilyPrintPage = {
   nodes: PrintNode[];
   edges: { source: string; target: string }[];
@@ -91,6 +93,7 @@ export function familyPrintPages(
   horizontal: boolean,
   viewW: number,
   viewH: number,
+  upward = false,
 ): FamilyPrintPage[] {
   const byId = new Map(nodes.map((n) => [n.id, n])),
     children = new Map(nodes.map((n) => [n.id, [] as PrintNode[]]));
@@ -164,6 +167,15 @@ export function familyPrintPages(
         );
     }
   }
+  if (upward && !horizontal)
+    for (const page of pages)
+      page.nodes = page.nodes.map((n) => ({
+        ...n,
+        position: {
+          x: n.position.x,
+          y: viewH - n.position.y - cardHeight(nameOf(n)),
+        },
+      }));
   return pages;
 }
 const escape = (v: string) =>
@@ -178,6 +190,7 @@ function drawing(
   nodes: PrintNode[],
   edges: { source: string; target: string }[],
   horizontal: boolean,
+  upward = false,
 ) {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const lines = edges
@@ -188,10 +201,20 @@ function drawing(
       const x1 = a.position.x + (horizontal ? 0 : CARD_WIDTH / 2),
         y1 =
           a.position.y +
-          (horizontal ? cardHeight(nameOf(a)) / 2 : cardHeight(nameOf(a))),
+          (horizontal
+            ? cardHeight(nameOf(a)) / 2
+            : upward
+              ? 0
+              : cardHeight(nameOf(a))),
         x2 = b.position.x + (horizontal ? CARD_WIDTH : CARD_WIDTH / 2),
-        y2 = b.position.y + (horizontal ? cardHeight(nameOf(b)) / 2 : 0);
-      return `<path d="M${x1},${y1} ${horizontal ? `H${(x1 + x2) / 2} V${y2} H${x2}` : `V${(y1 + y2) / 2} H${x2} V${y2}`}" fill="none" stroke="#477a60" stroke-width="2" stroke-linejoin="round"/>`;
+        y2 =
+          b.position.y +
+          (horizontal
+            ? cardHeight(nameOf(b)) / 2
+            : upward
+              ? cardHeight(nameOf(b))
+              : 0);
+      return `<path d="M${x1},${y1} ${upward ? `C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}` : horizontal ? `H${(x1 + x2) / 2} V${y2} H${x2}` : `V${(y1 + y2) / 2} H${x2} V${y2}`}" fill="none" stroke="#477a60" stroke-width="2" stroke-linejoin="round"/>`;
     })
     .join("");
   const cards = nodes
@@ -209,6 +232,7 @@ export function buildPrintDocument(
   edges: { source: string; target: string }[],
   horizontal: boolean,
   options: PrintOptions,
+  upward = false,
 ) {
   if (!nodes.length)
     throw new Error("لا توجد أسماء ضمن الأجيال المختارة للطباعة");
@@ -232,14 +256,14 @@ export function buildPrintDocument(
     viewH = plan.usableH / plan.scale;
   const pages: FamilyPrintPage[] =
     options.mode === "tiles"
-      ? familyPrintPages(nodes, edges, horizontal, viewW, viewH)
+      ? familyPrintPages(nodes, edges, horizontal, viewW, viewH, upward)
       : [
           {
             nodes,
             edges,
             label: "الشجرة كاملة",
             viewX: horizontal ? minX + width - viewW : minX,
-            viewY: minY,
+            viewY: upward ? minY + height - viewH : minY,
           },
         ];
   plan.pages = pages.length;
@@ -248,7 +272,7 @@ export function buildPrintDocument(
   const content = pages
     .map(
       (page, i) =>
-        `<section class="sheet"><header><span>شجرة العائلة · ${escape(page.label)} · ${escape(options.generationLabel ?? "كل الأجيال")}</span><small>صفحة ${i + 1}/${pages.length} · ${horizontal ? "محاذاة لليمين" : "محاذاة للأعلى"}</small></header><svg xmlns="http://www.w3.org/2000/svg" width="${plan.usableW}mm" height="${plan.usableH}mm" viewBox="${page.viewX} ${page.viewY} ${viewW} ${viewH}" style="font-family:Tahoma,Arial,sans-serif">${drawing(page.nodes, page.edges, horizontal)}</svg></section>`,
+        `<section class="sheet"><header><span>شجرة العائلة · ${escape(page.label)} · ${escape(options.generationLabel ?? "كل الأجيال")}</span><small>صفحة ${i + 1}/${pages.length} · ${horizontal ? "محاذاة لليمين" : upward ? "محاذاة للأسفل — شجرة صاعدة" : "محاذاة للأعلى"}</small></header><svg xmlns="http://www.w3.org/2000/svg" width="${plan.usableW}mm" height="${plan.usableH}mm" viewBox="${page.viewX} ${page.viewY} ${viewW} ${viewH}" style="font-family:Tahoma,Arial,sans-serif">${drawing(page.nodes, page.edges, horizontal, upward)}</svg></section>`,
     )
     .join("");
   return {

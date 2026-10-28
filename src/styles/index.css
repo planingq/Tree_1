@@ -1666,3 +1666,51 @@ td small {
     min-height: 560px;
   }
 }
+.upward-canvas {
+  background: radial-gradient(ellipse at bottom, #e4edd4, #f8fbf4 75%);
+}
+.upward-card {
+  border-radius: 24px 24px 10px 24px;
+  border-top-color: #6d8e50;
+  background: #fcfff8;
+}
+.upward-card .collapse-button {
+  bottom: auto;
+  top: -13px;
+}
+.root-sprout {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: calc(50% - 24px);
+  color: #819e61;
+  pointer-events: none;
+}
+.upward-card.highlight {
+  background: #deefc9;
+}
+.person-card .person-main {
+  padding: 8px 7px 4px;
+}
+.person-card .person-main strong {
+  font-size: 15px;
+  line-height: 22px;
+}
+.person-card .person-main small {
+  font-size: 9px;
+  line-height: 15px;
+  margin-top: 3px;
+}
+.person-card .person-counts {
+  margin: 0 7px;
+  padding: 6px 0;
+  font-size: 8px;
+  min-height: 28px;
+  gap: 5px;
+}
+.person-card .person-counts b {
+  font-size: 10px;
+  margin-left: 2px;
+}
+.upward-card {
+  border-radius: 18px 18px 8px 18px;
+}

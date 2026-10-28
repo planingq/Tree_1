@@ -5,9 +5,9 @@ with sync_playwright() as p:
  page=b.new_page(viewport={'width':1440,'height':1200});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto('http://127.0.0.1:5173/',wait_until='networkidle');page.get_by_role('button',name='الدخول إلى النسخة التجريبية').click();page.locator('.person-card').first.wait_for();page.wait_for_timeout(400)
  page.get_by_role('textbox',name='البحث في الشجرة').fill('005');page.get_by_role('button',name='بحث',exact=True).click();page.wait_for_timeout(600)
- card=page.locator('.person-card.highlight');assert card.locator('strong').inner_text()=='خالد محمد عبدالله السالم'
+ card=page.locator('.person-card.highlight');assert card.locator('strong').inner_text()=='خالد'
  assert '#005' not in card.inner_text();assert card.locator('strong').evaluate('e=>getComputedStyle(e).textAlign')=='center'
- card.locator('.person-main').click();page.keyboard.press('Escape');assert page.locator('.person-card.highlight').count()==1
+ card.locator('.person-main').click();assert page.locator('#detail-title').inner_text()=='خالد محمد عبدالله السالم';page.keyboard.press('Escape');assert page.locator('.person-card.highlight').count()==1
  page.get_by_label('من الجيل',exact=True).select_option('2');page.get_by_label('إلى الجيل',exact=True).select_option('3');assert '9 فردًا' in page.locator('.tree-extra-toolbar').inner_text()
  page.get_by_role('button',name='إعادة ضبط العرض').click();page.wait_for_timeout(500)
  page.get_by_label('امتداد الخطوط').fill('100');page.get_by_label('امتداد الخطوط').dispatch_event('input');page.wait_for_timeout(400)

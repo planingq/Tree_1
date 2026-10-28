@@ -1,4 +1,10 @@
-import { CARD_WIDTH, cardHeight, generationRange } from "./presentation";
+import {
+  CARD_WIDTH,
+  cardHeight,
+  generationRange,
+  firstName,
+  treeDirection,
+} from "./presentation";
 import { useMemo, useState } from "react";
 import dagre from "@dagrejs/dagre";
 import { Download, Printer, X } from "lucide-react";
@@ -13,6 +19,7 @@ export default function ExportControls({
   people,
   family,
   horizontal,
+  upward,
   names,
   gap,
 }: {
@@ -21,6 +28,7 @@ export default function ExportControls({
   people: Person[];
   family: FamilyAnalysis;
   horizontal: boolean;
+  upward: boolean;
   names: Map<string, string>;
   gap: number;
 }) {
@@ -55,7 +63,7 @@ export default function ExportControls({
       };
     const graph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
     graph.setGraph({
-      rankdir: horizontal ? "RL" : "TB",
+      rankdir: treeDirection(horizontal, upward),
       nodesep: Math.max(16, gap / 2),
       ranksep: gap,
     });
@@ -66,7 +74,7 @@ export default function ExportControls({
     filtered.forEach((p) =>
       graph.setNode(p.id, {
         width: CARD_WIDTH,
-        height: cardHeight(names.get(p.id) ?? p.name),
+        height: cardHeight(firstName(p.name)),
       }),
     );
     const allEdges = filtered
@@ -81,18 +89,29 @@ export default function ExportControls({
           id: p.id,
           position: {
             x: position.x - CARD_WIDTH / 2,
-            y: position.y - cardHeight(names.get(p.id) ?? p.name) / 2,
+            y: position.y - cardHeight(firstName(p.name)) / 2,
           },
           data: {
             person: p,
             fullName: names.get(p.id) ?? p.name,
+            displayName: firstName(p.name),
             ...family.stats.get(p.id)!,
           },
         };
       }),
       edges: allEdges,
     };
-  }, [scope, nodes, edges, family, horizontal, targetPeople, names, gap]);
+  }, [
+    scope,
+    nodes,
+    edges,
+    family,
+    horizontal,
+    upward,
+    targetPeople,
+    names,
+    gap,
+  ]);
   return (
     <>
       <button
@@ -278,11 +297,11 @@ export default function ExportControls({
               )}
             </div>
             <p className="notice">
-              المحاذاة تلقائيًا لليمين للشجرة الأفقية، وللأعلى للعمودية. الصفحات
-              العائلية تجمع الأب مع أبنائه المباشرين دون قص البطاقات؛ عند كثرة
-              الأبناء يتكرر الأب على صفحات المتابعة، وتظهر الأحفاد في صفحات
-              آبائهم. استخدم ورقًا أكبر أو نطاق أجيال أصغر لجمع فرع أكبر في ورقة
-              واحدة.
+              المحاذاة تلقائيًا لليمين للشجرة الأفقية، وللأعلى للعمودية وللأسفل
+              للشجرة الصاعدة. الصفحات العائلية تجمع الأب مع أبنائه المباشرين دون
+              قص البطاقات؛ عند كثرة الأبناء يتكرر الأب على صفحات المتابعة، وتظهر
+              الأحفاد في صفحات آبائهم. استخدم ورقًا أكبر أو نطاق أجيال أصغر لجمع
+              فرع أكبر في ورقة واحدة.
             </p>
             <p className="muted">
               PDF يحفظ الرسم بخطوط ونصوص قابلة للتكبير. بعد فتح المعاينة اختر
@@ -309,6 +328,7 @@ export default function ExportControls({
                         ...options,
                         generationLabel: `الأجيال ${fromGeneration} إلى ${toGeneration || family.generations.length}`,
                       },
+                      upward,
                     );
                     const popup = window.open("", "_blank");
                     if (!popup)
