@@ -1,12 +1,8 @@
-import {
-  CARD_WIDTH,
-  cardHeight,
-  generationRange,
-  firstName,
-  treeDirection,
-} from "./presentation";
+import { compactTreeLayout } from "./layout";
+import { filterStatus } from "./presentation";
+import type { StatusFilter } from "./presentation";
+import { generationRange, firstName } from "./presentation";
 import { useMemo, useState } from "react";
-import dagre from "@dagrejs/dagre";
 import { Download, Printer, X } from "lucide-react";
 import Dialog from "../../components/Dialog";
 import type { Person } from "../../types";
@@ -22,6 +18,8 @@ export default function ExportControls({
   upward,
   names,
   gap,
+  showStatus,
+  status,
 }: {
   nodes: PrintNode[];
   edges: { source: string; target: string }[];
@@ -31,13 +29,17 @@ export default function ExportControls({
   upward: boolean;
   names: Map<string, string>;
   gap: number;
+  showStatus: boolean;
+  status: StatusFilter;
 }) {
   const [open, setOpen] = useState(false),
     [scope, setScope] = useState("visible"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [fromGeneration, setFromGeneration] = useState(1),
-    [toGeneration, setToGeneration] = useState(0);
+    [toGeneration, setToGeneration] = useState(0),
+    [printStatus, setPrintStatus] = useState<StatusFilter>(status),
+    [printShowStatus, setPrintShowStatus] = useState(showStatus);
   const [options, setOptions] = useState<PrintOptions>({
     paper: "A3",
     landscape: true,
@@ -46,71 +48,55 @@ export default function ExportControls({
   });
   const targetPeople = useMemo(
     () =>
-      generationRange(
-        scope === "all" ? people : nodes.map((n) => n.data.person),
-        family,
-        fromGeneration,
-        toGeneration || family.generations.length,
+      filterStatus(
+        generationRange(
+          scope === "all" ? people : nodes.map((n) => n.data.person),
+          family,
+          fromGeneration,
+          toGeneration || family.generations.length,
+        ),
+        printStatus,
       ),
-    [scope, people, nodes, family, fromGeneration, toGeneration],
+    [scope, people, nodes, family, fromGeneration, toGeneration, printStatus],
   );
   const printData = useMemo(() => {
-    const ids = new Set(targetPeople.map((p) => p.id));
-    if (scope === "visible")
-      return {
-        nodes: nodes.filter((n) => ids.has(n.id)),
-        edges: edges.filter((e) => ids.has(e.source) && ids.has(e.target)),
-      };
-    const graph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-    graph.setGraph({
-      rankdir: treeDirection(horizontal, upward),
-      nodesep: Math.max(16, gap / 2),
-      ranksep: gap,
-    });
-    const ordered = [...family.roots];
-    for (let i = 0; i < ordered.length; i++)
-      ordered.push(...family.children.get(ordered[i].id)!);
-    const filtered = ordered.filter((p) => ids.has(p.id));
-    filtered.forEach((p) =>
-      graph.setNode(p.id, {
-        width: CARD_WIDTH,
-        height: cardHeight(firstName(p.name)),
-      }),
-    );
-    const allEdges = filtered
-      .filter((p) => ids.has(p.parentId))
-      .map((p) => ({ source: p.parentId, target: p.id }));
-    allEdges.forEach((e) => graph.setEdge(e.source, e.target));
-    dagre.layout(graph);
+    const positions = compactTreeLayout(
+        targetPeople,
+        horizontal,
+        upward,
+        gap,
+        printShowStatus,
+      ),
+      ids = new Set(targetPeople.map((p) => p.id)),
+      selectedIds = new Set(
+        nodes.filter((n) => n.data.selected).map((n) => n.id),
+      );
     return {
-      nodes: filtered.map((p) => {
-        const position = graph.node(p.id);
-        return {
-          id: p.id,
-          position: {
-            x: position.x - CARD_WIDTH / 2,
-            y: position.y - cardHeight(firstName(p.name)) / 2,
-          },
-          data: {
-            person: p,
-            fullName: names.get(p.id) ?? p.name,
-            displayName: firstName(p.name),
-            ...family.stats.get(p.id)!,
-          },
-        };
-      }),
-      edges: allEdges,
+      nodes: targetPeople.map((p) => ({
+        id: p.id,
+        position: positions.get(p.id)!,
+        data: {
+          person: p,
+          displayName: firstName(p.name),
+          fullName: names.get(p.id) ?? p.name,
+          showStatus: printShowStatus,
+          selected: selectedIds.has(p.id),
+          ...family.stats.get(p.id)!,
+        },
+      })),
+      edges: targetPeople
+        .filter((p) => ids.has(p.parentId))
+        .map((p) => ({ source: p.parentId, target: p.id })),
     };
   }, [
-    scope,
-    nodes,
-    edges,
-    family,
+    targetPeople,
     horizontal,
     upward,
-    targetPeople,
-    names,
     gap,
+    printShowStatus,
+    nodes,
+    names,
+    family,
   ]);
   return (
     <>
@@ -118,6 +104,8 @@ export default function ExportControls({
         className="button secondary"
         onClick={() => {
           setError("");
+          setPrintStatus(status);
+          setPrintShowStatus(showStatus);
           setOpen(true);
         }}
       >
@@ -141,6 +129,28 @@ export default function ExportControls({
               </button>
             </div>
             <div className="form-grid">
+              <label>
+                حالة الأفراد للطباعة
+                <select
+                  aria-label="حالة الأفراد للطباعة"
+                  value={printStatus}
+                  onChange={(e) =>
+                    setPrintStatus(e.target.value as StatusFilter)
+                  }
+                >
+                  <option value="all">الكل</option>
+                  <option value="1">الأحياء</option>
+                  <option value="2">المتوفون</option>
+                </select>
+              </label>
+              <label className="status-toggle">
+                <input
+                  type="checkbox"
+                  checked={printShowStatus}
+                  onChange={(e) => setPrintShowStatus(e.target.checked)}
+                />{" "}
+                إظهار نص الحالة في الطباعة
+              </label>
               <label>
                 نطاق التصدير
                 <select

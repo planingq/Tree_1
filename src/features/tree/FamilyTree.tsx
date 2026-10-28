@@ -1,9 +1,11 @@
+import { compactTreeLayout } from "./layout";
+import { filterStatus } from "./presentation";
+import type { StatusFilter } from "./presentation";
 import {
   CARD_WIDTH,
   cardHeight,
   generationRange,
   firstName,
-  treeDirection,
 } from "./presentation";
 import ExportControls from "./ExportControls";
 import { ancestorPath } from "./export";
@@ -19,7 +21,6 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import type { NodeProps, Node } from "@xyflow/react";
-import dagre from "@dagrejs/dagre";
 import type { Person } from "../../types";
 import type { FamilyAnalysis } from "../../utils/family";
 import {
@@ -35,6 +36,7 @@ import "@xyflow/react/dist/style.css";
 type CardData = {
   person: Person;
   fullName: string;
+  showStatus: boolean;
   displayName: string;
   upward: boolean;
   root: boolean;
@@ -52,7 +54,10 @@ const PersonCard = memo(function PersonCard({
 }: NodeProps<Node<CardData>>) {
   return (
     <div
-      style={{ width: CARD_WIDTH, height: cardHeight(data.displayName) }}
+      style={{
+        width: CARD_WIDTH,
+        height: cardHeight(data.displayName, data.showStatus),
+      }}
       className={`person-card ${data.upward ? "upward-card" : ""} ${data.selected ? "highlight" : ""} ${data.person.status === 2 ? "deceased" : ""}`}
     >
       <Handle
@@ -68,11 +73,13 @@ const PersonCard = memo(function PersonCard({
       <button className="person-main" onClick={data.details}>
         <span>
           <strong>{data.displayName}</strong>
-          <small>
-            <span className={data.person.status === 1 ? "alive-label" : ""}>
-              {data.person.status === 1 ? "على قيد الحياة" : "رحمه الله"}
-            </span>
-          </small>
+          {data.showStatus && (
+            <small>
+              <span className={data.person.status === 1 ? "alive-label" : ""}>
+                {data.person.status === 1 ? "على قيد الحياة" : "رحمه الله"}
+              </span>
+            </small>
+          )}
         </span>
       </button>
       <div className="person-counts">
@@ -134,12 +141,15 @@ function Canvas({
     [notice, setNotice] = useState(""),
     [fromGeneration, setFromGeneration] = useState(1),
     [toGeneration, setToGeneration] = useState(0),
-    [gap, setGap] = useState(35),
+    [gap, setGap] = useState(28),
+    [status, setStatus] = useState<StatusFilter>("all"),
+    [showStatus, setShowStatus] = useState(false),
     [mouseMode, setMouseMode] = useState<"pan" | "zoom">("pan");
   const flow = useReactFlow();
   useEffect(() => {
     setFromGeneration(1);
     setToGeneration(0);
+    setStatus("all");
   }, [ancestorId, people]);
   const ancestors = useMemo(
     () => ancestorPath(ancestorId, family),
@@ -163,23 +173,21 @@ function Canvas({
         );
       else if (!collapsed.has(p.id)) queue.push(...family.children.get(p.id)!);
     }
-    const filtered = generationRange(
-      visible,
-      family,
-      fromGeneration,
-      toGeneration || family.generations.length,
+    const filtered = filterStatus(
+      generationRange(
+        visible,
+        family,
+        fromGeneration,
+        toGeneration || family.generations.length,
+      ),
+      status,
     );
-    const graph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-    graph.setGraph({
-      rankdir: treeDirection(horizontal, upward),
-      nodesep: Math.max(16, gap / 2),
-      ranksep: gap,
-    });
-    filtered.forEach((p) =>
-      graph.setNode(p.id, {
-        width: CARD_WIDTH,
-        height: cardHeight(firstName(p.name)),
-      }),
+    const positions = compactTreeLayout(
+      filtered,
+      horizontal,
+      upward,
+      gap,
+      showStatus,
     );
     const ids = new Set(filtered.map((p) => p.id));
     const edges = filtered
@@ -197,24 +205,20 @@ function Canvas({
             : 2.1,
         },
       }));
-    edges.forEach((e) => graph.setEdge(e.source, e.target));
-    dagre.layout(graph);
     const nodes = filtered.map((p) => {
-      const pos = graph.node(p.id),
+      const pos = positions.get(p.id)!,
         stat = family.stats.get(p.id)!;
       return {
         id: p.id,
         type: "person",
-        position: {
-          x: pos.x - CARD_WIDTH / 2,
-          y: pos.y - cardHeight(firstName(p.name)) / 2,
-        },
+        position: pos,
         width: CARD_WIDTH,
-        height: cardHeight(firstName(p.name)),
+        height: cardHeight(firstName(p.name), showStatus),
         data: {
           person: p,
           fullName: names.get(p.id) ?? p.name,
           displayName: firstName(p.name),
+          showStatus,
           upward,
           root: !ids.has(p.parentId),
           ...stat,
@@ -249,6 +253,8 @@ function Canvas({
     toGeneration,
     gap,
     names,
+    status,
+    showStatus,
   ]);
   const edges = layout.edges;
   const nodes = useMemo(
@@ -266,7 +272,7 @@ function Canvas({
       if (first)
         void flow.setCenter(
           first.position.x + CARD_WIDTH / 2,
-          first.position.y + cardHeight(first.data.displayName) / 2,
+          first.position.y + cardHeight(first.data.displayName, showStatus) / 2,
           {
             zoom: 1,
             duration: 250,
@@ -283,6 +289,8 @@ function Canvas({
     fromGeneration,
     toGeneration,
     gap,
+    status,
+    showStatus,
     flow,
   ]);
   function search() {
@@ -296,6 +304,7 @@ function Canvas({
     setNotice("");
     onAncestorChange("");
     setSelected(match.id);
+    setStatus("all");
     setFromGeneration(1);
     setToGeneration(0);
     setCollapsed((old) => {
@@ -314,7 +323,7 @@ function Canvas({
     if (n)
       void flow.setCenter(
         n.position.x + CARD_WIDTH / 2,
-        n.position.y + cardHeight(n.data.displayName) / 2,
+        n.position.y + cardHeight(n.data.displayName, showStatus) / 2,
         {
           zoom: 1,
           duration: 450,
@@ -374,7 +383,8 @@ function Canvas({
               if (first)
                 void flow.setCenter(
                   first.position.x + CARD_WIDTH / 2,
-                  first.position.y + cardHeight(first.data.displayName) / 2,
+                  first.position.y +
+                    cardHeight(first.data.displayName, showStatus) / 2,
                   { zoom: 1, duration: 250 },
                 );
             }}
@@ -391,6 +401,26 @@ function Canvas({
         </div>
       </div>
       <div className="tree-view-options">
+        <label>
+          الحالة
+          <select
+            aria-label="تصفية حالة الشجرة"
+            value={status}
+            onChange={(e) => setStatus(e.target.value as StatusFilter)}
+          >
+            <option value="all">الكل</option>
+            <option value="1">الأحياء</option>
+            <option value="2">المتوفون</option>
+          </select>
+        </label>
+        <label className="status-toggle">
+          <input
+            type="checkbox"
+            checked={showStatus}
+            onChange={(e) => setShowStatus(e.target.checked)}
+          />{" "}
+          إظهار نص الحالة
+        </label>
         <label>
           من الجيل
           <select
@@ -469,6 +499,8 @@ function Canvas({
           family={family}
           horizontal={horizontal}
           upward={upward}
+          showStatus={showStatus}
+          status={status}
           names={names}
           gap={gap}
         />
@@ -491,6 +523,11 @@ function Canvas({
             العودة إلى العائلة كاملة
           </button>
         </div>
+      )}
+      {nodes.length === 0 && (
+        <p className="notice" role="status">
+          لا توجد أفراد تطابق الأجيال والحالة المختارة.
+        </p>
       )}
       {notice && (
         <p role="status" className="notice">
@@ -519,12 +556,16 @@ function Canvas({
           <MiniMap pannable zoomable nodeColor="#7da48d" />
         </ReactFlow>
         <div className="canvas-legend" dir="rtl">
-          <span>
-            <i /> على قيد الحياة
-          </span>
-          <span>
-            <i className="gray" /> متوفى
-          </span>
+          {showStatus && (
+            <>
+              <span>
+                <i /> على قيد الحياة
+              </span>
+              <span>
+                <i className="gray" /> متوفى
+              </span>
+            </>
+          )}
           <span>اضغط على البطاقة لعرض التفاصيل</span>
         </div>
       </div>

@@ -77,8 +77,8 @@ it("لا يقص أي بطاقة ويبقي الأب مع الأبناء في ك�
       }
       for (const e of page.edges)
         expect(
-          page.nodes.some((n) => n.id === e.source) &&
-            page.nodes.some((n) => n.id === e.target),
+          page.nodes.some((n) => (n.data.instanceKey ?? n.id) === e.source) &&
+            page.nodes.some((n) => (n.data.instanceKey ?? n.id) === e.target),
         ).toBe(true);
     }
     expect(found.size).toBe(ps.length);

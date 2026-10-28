@@ -1,6 +1,6 @@
 import type { Person } from "../../types";
 import type { FamilyAnalysis } from "../../utils/family";
-export const CARD_WIDTH = 180;
+export const CARD_WIDTH = 160;
 export function wrapName(name: string, limit = 18) {
   const lines: string[] = [""];
   for (const word of name.split(/\s+/)) {
@@ -11,8 +11,8 @@ export function wrapName(name: string, limit = 18) {
   }
   return lines;
 }
-export function cardHeight(name: string) {
-  return Math.max(108, wrapName(name).length * 24 + 76);
+export function cardHeight(name: string, showStatus = false) {
+  return Math.max(92, wrapName(name).length * 24 + 56) + (showStatus ? 16 : 0);
 }
 export function familyNames(family: FamilyAnalysis) {
   const names = new Map<string, string>(),
@@ -55,3 +55,7 @@ export const firstName = (name: string) => {
 };
 export const treeDirection = (horizontal: boolean, upward = false) =>
   horizontal ? "RL" : upward ? "BT" : "TB";
+
+export type StatusFilter = "all" | "1" | "2";
+export const filterStatus = (people: Person[], status: StatusFilter) =>
+  status === "all" ? people : people.filter((p) => String(p.status) === status);

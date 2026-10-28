@@ -1714,3 +1714,52 @@ td small {
 .upward-card {
   border-radius: 18px 18px 8px 18px;
 }
+.person-card .person-main {
+  padding: 6px 6px 3px;
+}
+.person-card .person-main strong {
+  font-size: 14px;
+  line-height: 21px;
+}
+.person-card .person-counts {
+  font-size: 7.5px;
+  min-height: 25px;
+  padding: 5px 0;
+  gap: 3px;
+  margin: 0 6px;
+}
+.person-card .person-counts b {
+  font-size: 9px;
+}
+.person-card.deceased {
+  background: #e1e3dc;
+  border-color: #8b9384;
+  border-top-color: #858d7d;
+}
+.person-card.deceased .person-main strong {
+  color: #48533f;
+}
+.person-card.deceased.highlight {
+  background: #d4e5c9;
+  border-color: #206740;
+}
+.status-toggle {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+}
+.status-toggle input {
+  width: auto;
+  flex: none;
+}
+.tree-view-options .status-toggle {
+  font-size: 11px;
+}
+.person-card .person-counts {
+  font-size: 8px;
+}
+.person-card.deceased .person-counts {
+  color: #64715b;
+}

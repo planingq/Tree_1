@@ -75,10 +75,14 @@ export type PrintNode = {
     fullName?: string;
     displayName?: string;
     selected?: boolean;
+    showStatus?: boolean;
+    instanceKey?: string;
   };
 };
 const nameOf = (n: PrintNode) =>
   n.data.displayName ?? n.data.fullName ?? n.data.person.name;
+const nodeH = (n: PrintNode) =>
+  cardHeight(nameOf(n), n.data.showStatus ?? false);
 export type FamilyPrintPage = {
   nodes: PrintNode[];
   edges: { source: string; target: string }[];
@@ -101,80 +105,117 @@ export function familyPrintPages(
     if (byId.has(e.source) && byId.has(e.target))
       children.get(e.source)!.push(byId.get(e.target)!);
   });
-  const maxH = Math.max(...nodes.map((n) => cardHeight(nameOf(n)))),
-    gap = 28;
-  const cols = horizontal
-    ? 1
-    : Math.max(
-        1,
-        Math.floor(
-          (viewW - (horizontal ? CARD_WIDTH + gap : 0) + gap) /
-            (CARD_WIDTH + gap),
-        ),
+  children.forEach((list) =>
+    list.sort(
+      (a, b) =>
+        a.data.person.siblingOrder - b.data.person.siblingOrder ||
+        a.id.localeCompare(b.id),
+    ),
+  );
+  const maxH = Math.max(...nodes.map(nodeH)),
+    gap = 20;
+  const capacity = horizontal
+    ? Math.max(1, Math.floor((viewH + gap) / (maxH + gap)))
+    : Math.max(1, Math.floor((viewW + gap) / (CARD_WIDTH + gap)));
+  const pages: FamilyPrintPage[] = [];
+  let current: FamilyPrintPage = {
+      nodes: [],
+      edges: [],
+      label: "",
+      viewX: 0,
+      viewY: 0,
+    },
+    usedX = 0,
+    usedY = 0,
+    rowH = 0,
+    groupId = 0;
+  const finish = () => {
+    if (!current.nodes.length) return;
+    pages.push(current);
+    if (pages.length > 200)
+      throw new Error(
+        "يتجاوز التصدير 200 صفحة. اختر نطاقًا أصغر أو ورقًا أكبر.",
       );
-  const rows = !horizontal
-      ? 1
-      : Math.max(
-          1,
-          Math.floor(
-            (viewH - (horizontal ? 0 : maxH + gap) + gap) / (maxH + gap),
-          ),
-        ),
-    capacity = cols * rows,
-    pages: FamilyPrintPage[] = [];
-  const childIds = new Set(edges.map((e) => e.target));
+    current = { nodes: [], edges: [], label: "", viewX: 0, viewY: 0 };
+    usedX = 0;
+    usedY = 0;
+    rowH = 0;
+  };
+  const childIds = new Set(
+    edges
+      .filter((e) => byId.has(e.source) && byId.has(e.target))
+      .map((e) => e.target),
+  );
   for (const parent of nodes) {
     const kids = children.get(parent.id)!;
     if (!kids.length && childIds.has(parent.id)) continue;
     for (let start = 0; start < Math.max(1, kids.length); start += capacity) {
-      const chunk = kids.slice(start, start + capacity),
-        usedRows = Math.ceil(chunk.length / cols);
-      const parentNode = {
-        ...parent,
-        position: horizontal
-          ? {
-              x: viewW - CARD_WIDTH,
-              y: Math.max(0, (usedRows * (maxH + gap) - gap - maxH) / 2),
-            }
-          : { x: (viewW - CARD_WIDTH) / 2, y: 0 },
-      };
-      const pageNodes = [
-        parentNode,
-        ...chunk.map((child, i) => ({
-          ...child,
-          position: {
-            x:
-              viewW -
-              CARD_WIDTH -
-              (horizontal ? CARD_WIDTH + gap : 0) -
-              (i % cols) * (CARD_WIDTH + gap),
-            y:
-              Math.floor(i / cols) * (maxH + gap) +
-              (horizontal ? 0 : maxH + gap),
-          },
+      const chunk = kids.slice(start, start + capacity);
+      const groupW = horizontal
+        ? chunk.length
+          ? 2 * CARD_WIDTH + gap
+          : CARD_WIDTH
+        : Math.max(CARD_WIDTH, chunk.length * (CARD_WIDTH + gap) - gap);
+      const groupH = horizontal
+        ? Math.max(maxH, chunk.length * (maxH + gap) - gap)
+        : chunk.length
+          ? 2 * maxH + gap
+          : maxH;
+      if (usedX + groupW > viewW + 0.001) {
+        usedY += rowH + gap;
+        usedX = 0;
+        rowH = 0;
+      }
+      if (usedY + groupH > viewH + 0.001) finish();
+      const shiftX = viewW - usedX - groupW,
+        shiftY = usedY,
+        token = `group-${groupId++}:`;
+      const local = [
+        {
+          ...parent,
+          position: horizontal
+            ? { x: groupW - CARD_WIDTH, y: (groupH - nodeH(parent)) / 2 }
+            : { x: (groupW - CARD_WIDTH) / 2, y: 0 },
+        },
+        ...chunk.map((n, i) => ({
+          ...n,
+          position: horizontal
+            ? { x: 0, y: i * (maxH + gap) }
+            : {
+                x: groupW - CARD_WIDTH - i * (CARD_WIDTH + gap),
+                y: maxH + gap,
+              },
         })),
       ];
-      pages.push({
-        nodes: pageNodes,
-        edges: chunk.map((child) => ({ source: parent.id, target: child.id })),
-        label: `${parent.data.person.name}${kids.length > capacity ? ` — متابعة ${Math.floor(start / capacity) + 1}/${Math.ceil(kids.length / capacity)}` : ""}`,
-        viewX: 0,
-        viewY: 0,
-      });
-      if (pages.length > 200)
-        throw new Error(
-          "يتجاوز التصدير 200 صفحة عائلية. اختر نطاق أجيال أصغر أو ورقًا أكبر.",
-        );
+      current.nodes.push(
+        ...local.map((n) => ({
+          ...n,
+          data: { ...n.data, instanceKey: token + n.id },
+          position: { x: n.position.x + shiftX, y: n.position.y + shiftY },
+        })),
+      );
+      current.edges.push(
+        ...chunk.map((n) => ({
+          source: token + parent.id,
+          target: token + n.id,
+        })),
+      );
+      const title =
+        parent.data.person.name +
+        (kids.length > capacity
+          ? ` — متابعة ${Math.floor(start / capacity) + 1}`
+          : "");
+      current.label = (current.label ? current.label + "، " : "") + title;
+      usedX += groupW + gap;
+      rowH = Math.max(rowH, groupH);
     }
   }
+  finish();
   if (upward && !horizontal)
     for (const page of pages)
       page.nodes = page.nodes.map((n) => ({
         ...n,
-        position: {
-          x: n.position.x,
-          y: viewH - n.position.y - cardHeight(nameOf(n)),
-        },
+        position: { x: n.position.x, y: viewH - n.position.y - nodeH(n) },
       }));
   return pages;
 }
@@ -192,37 +233,25 @@ function drawing(
   horizontal: boolean,
   upward = false,
 ) {
-  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const byId = new Map(nodes.map((n) => [n.data.instanceKey ?? n.id, n]));
   const lines = edges
     .map((e) => {
       const a = byId.get(e.source),
         b = byId.get(e.target);
       if (!a || !b) return "";
       const x1 = a.position.x + (horizontal ? 0 : CARD_WIDTH / 2),
-        y1 =
-          a.position.y +
-          (horizontal
-            ? cardHeight(nameOf(a)) / 2
-            : upward
-              ? 0
-              : cardHeight(nameOf(a))),
+        y1 = a.position.y + (horizontal ? nodeH(a) / 2 : upward ? 0 : nodeH(a)),
         x2 = b.position.x + (horizontal ? CARD_WIDTH : CARD_WIDTH / 2),
-        y2 =
-          b.position.y +
-          (horizontal
-            ? cardHeight(nameOf(b)) / 2
-            : upward
-              ? cardHeight(nameOf(b))
-              : 0);
+        y2 = b.position.y + (horizontal ? nodeH(b) / 2 : upward ? nodeH(b) : 0);
       return `<path d="M${x1},${y1} ${upward ? `C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}` : horizontal ? `H${(x1 + x2) / 2} V${y2} H${x2}` : `V${(y1 + y2) / 2} H${x2} V${y2}`}" fill="none" stroke="#477a60" stroke-width="2" stroke-linejoin="round"/>`;
     })
     .join("");
   const cards = nodes
     .map((n) => {
       const p = n.data.person,
-        h = cardHeight(nameOf(n)),
+        h = nodeH(n),
         lines = wrapName(nameOf(n));
-      return `<g data-person="${escape(n.id)}" transform="translate(${n.position.x} ${n.position.y})"><rect width="${CARD_WIDTH}" height="${h}" rx="12" fill="${n.data.selected ? "#e8f3df" : "white"}" stroke="${n.data.selected ? "#22653d" : "#729781"}" stroke-width="${n.data.selected ? 3 : 1}"/><text x="${CARD_WIDTH / 2}" y="28" text-anchor="middle" direction="rtl" font-size="16" font-weight="bold">${lines.map((line, i) => `<tspan x="${CARD_WIDTH / 2}" dy="${i ? 24 : 0}">${escape(line)}</tspan>`).join("")}</text><text x="${CARD_WIDTH / 2}" y="${h - 45}" text-anchor="middle" direction="rtl" font-size="12">${p.status === 1 ? "حي" : "متوفى — رحمه الله"}</text><text x="${CARD_WIDTH / 2}" y="${h - 19}" text-anchor="middle" direction="rtl" font-size="11">الأبناء: ${n.data.direct} · إجمالي الذرية: ${n.data.total}</text></g>`;
+      return `<g data-person="${escape(n.id)}" transform="translate(${n.position.x} ${n.position.y})"><rect width="${CARD_WIDTH}" height="${h}" rx="12" fill="${n.data.selected ? "#e8f3df" : p.status === 2 ? "#e1e3dc" : "white"}" stroke="${n.data.selected ? "#22653d" : "#729781"}" stroke-width="${n.data.selected ? 3 : 1}"/><text x="${CARD_WIDTH / 2}" y="28" text-anchor="middle" direction="rtl" font-size="16" font-weight="bold">${lines.map((line, i) => `<tspan x="${CARD_WIDTH / 2}" dy="${i ? 24 : 0}">${escape(line)}</tspan>`).join("")}</text>${n.data.showStatus ? `<text x="${CARD_WIDTH / 2}" y="${h - 39}" text-anchor="middle" direction="rtl" font-size="11">${p.status === 1 ? "حي" : "متوفى — رحمه الله"}</text>` : ""}<text x="${CARD_WIDTH / 2}" y="${h - 19}" text-anchor="middle" direction="rtl" font-size="11">الأبناء: ${n.data.direct} · إجمالي الذرية: ${n.data.total}</text></g>`;
     })
     .join("");
   return lines + cards;
@@ -239,13 +268,10 @@ export function buildPrintDocument(
   const minX = Math.min(...nodes.map((n) => n.position.x)) - 8,
     minY = Math.min(...nodes.map((n) => n.position.y)) - 8,
     width = Math.max(...nodes.map((n) => n.position.x + CARD_WIDTH)) - minX + 8,
-    height =
-      Math.max(...nodes.map((n) => n.position.y + cardHeight(nameOf(n)))) -
-      minY +
-      8;
+    height = Math.max(...nodes.map((n) => n.position.y + nodeH(n))) - minY + 8;
   const plan = printPlan(width, height, options);
   if (options.mode === "tiles") {
-    const maxH = Math.max(...nodes.map((n) => cardHeight(nameOf(n))));
+    const maxH = Math.max(...nodes.map((n) => nodeH(n)));
     plan.scale = Math.min(
       plan.scale,
       plan.usableW / (horizontal ? 2 * CARD_WIDTH + 28 : CARD_WIDTH),
@@ -278,6 +304,6 @@ export function buildPrintDocument(
   return {
     plan,
     pages,
-    html: `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>طباعة شجرة العائلة</title><style>@page{size:${plan.pw}mm ${plan.ph}mm;margin:10mm}*{box-sizing:border-box}body{margin:0;color:#254735;font-family:Tahoma,Arial,sans-serif}.sheet{width:${plan.usableW}mm;break-after:page;break-inside:avoid}.sheet:last-child{break-after:auto}header{height:15mm;display:flex;justify-content:space-between;font-size:13px}small{font-size:10px}svg{display:block;direction:ltr}aside{padding:15px;background:#eff5ec;margin-bottom:15px}button{padding:10px 20px;cursor:pointer}@media print{aside{display:none}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}@media screen{.sheet{margin:20px auto;box-shadow:0 0 0 1px #ddd}}</style></head><body><aside>اختر «حفظ بتنسيق PDF» من الطابعات. اضبط المقياس 100٪ والهوامش 10 مم وأوقف رؤوس وتذييلات المتصفح. ${options.mode === "tiles" ? "كل بطاقة كاملة في صفحة، والأب مع أبنائه المباشرين. إذا كثر الأبناء يتكرر الأب في صفحات المتابعة؛ تستكمل الأحفاد في صفحات آبائهم." : "ورقة واحدة؛ قد تصغر الأسماء للشجرة الكبيرة."} عدد الصفحات: ${pages.length}.<br><button onclick="window.print()">طباعة / حفظ PDF</button></aside>${content}</body></html>`,
+    html: `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>طباعة شجرة العائلة</title><style>@page{size:${plan.pw}mm ${plan.ph}mm;margin:10mm}*{box-sizing:border-box}body{margin:0;color:#254735;font-family:Tahoma,Arial,sans-serif}.sheet{width:${plan.usableW}mm;break-after:page;break-inside:avoid}.sheet:last-child{break-after:auto}header span{max-width:80%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}header{height:15mm;display:flex;justify-content:space-between;font-size:13px}small{font-size:10px}svg{display:block;direction:ltr}aside{padding:15px;background:#eff5ec;margin-bottom:15px}button{padding:10px 20px;cursor:pointer}@media print{aside{display:none}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}@media screen{.sheet{margin:20px auto;box-shadow:0 0 0 1px #ddd}}</style></head><body><aside>اختر «حفظ بتنسيق PDF» من الطابعات. اضبط المقياس 100٪ والهوامش 10 مم وأوقف رؤوس وتذييلات المتصفح. ${options.mode === "tiles" ? "كل بطاقة كاملة في صفحة، والأب مع أبنائه المباشرين. إذا كثر الأبناء يتكرر الأب في صفحات المتابعة؛ تستكمل الأحفاد في صفحات آبائهم." : "ورقة واحدة؛ قد تصغر الأسماء للشجرة الكبيرة."} عدد الصفحات: ${pages.length}.<br><button onclick="window.print()">طباعة / حفظ PDF</button></aside>${content}</body></html>`,
   };
 }
