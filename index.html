@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="موقع عربي بسيط بتصميم عصري ومتجاوب">
+  <title>مساحتي | الصفحة الرئيسية</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="container nav" aria-label="التنقل الرئيسي">
+      <a class="brand" href="#home">مساحتي<span>.</span></a>
+      <div class="nav-links">
+        <a href="#home">الرئيسية</a>
+        <a href="#features">المميزات</a>
+        <a href="#about">عن المشروع</a>
+      </div>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="تفعيل الوضع الداكن" aria-pressed="false">🌙</button>
+    </nav>
+  </header>
+  <main>
+    <section id="home" class="hero container">
+      <div class="hero-content">
+        <span class="eyebrow">مرحبًا بك في موقعك الجديد</span>
+        <h1>بداية بسيطة، <span>لأفكار كبيرة.</span></h1>
+        <p>صفحة عربية أنيقة وسريعة، صُممت لتكون خطوتك الأولى في عالم تطوير الويب، بدون تعقيد أو تثبيت برامج.</p>
+        <div class="actions">
+          <a class="button primary" href="#features">استكشف المميزات</a>
+          <button class="button secondary" id="welcomeBtn" type="button">رسالة ترحيب</button>
+        </div>
+        <p id="welcomeMessage" class="feedback" role="status" aria-live="polite"></p>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="art-card"><div class="art-icon">✦</div><div class="art-line wide"></div><div class="art-line"></div><div class="art-pills"><i></i><i></i><i></i></div></div>
+      </div>
+    </section>
+    <section id="features" class="features-section">
+      <div class="container">
+        <div class="section-heading"><span class="eyebrow">لماذا هذا المشروع؟</span><h2>كل ما تحتاجه للانطلاق</h2></div>
+        <div class="cards">
+          <article class="feature-card"><span class="feature-icon">🌐</span><h3>عربي بالكامل</h3><p>اتجاه من اليمين إلى اليسار ومحتوى واضح وسهل القراءة.</p></article>
+          <article class="feature-card"><span class="feature-icon">📱</span><h3>متجاوب مع الشاشات</h3><p>تصميم مرن يناسب الهواتف والأجهزة اللوحية والكمبيوتر.</p></article>
+          <article class="feature-card"><span class="feature-icon">⚡</span><h3>خفيف وسريع</h3><p>HTML وCSS وJavaScript فقط، بدون أي مكتبات خارجية.</p></article>
+        </div>
+      </div>
+    </section>
+    <section id="about" class="about container"><span class="eyebrow">عن المشروع</span><h2>موقعك قابل للتطوير</h2><p>يمكنك تعديل النصوص والألوان وإضافة صفحات ومميزات جديدة بسهولة، وكل شيء يعمل محليًا من المتصفح.</p></section>
+  </main>
+  <footer class="footer"><div class="container">© <span id="year"></span> مساحتي — صُنع بكل بساطة.</div></footer>
+</body>
+</html>
