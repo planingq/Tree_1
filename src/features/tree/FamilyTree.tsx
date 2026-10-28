@@ -1,3 +1,5 @@
+import ExportControls from "./ExportControls";
+import { ancestorPath } from "./export";
 import { memo, useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
@@ -29,6 +31,7 @@ type CardData = {
   total: number;
   horizontal: boolean;
   collapsed: boolean;
+  canCollapse: boolean;
   selected: boolean;
   toggle: () => void;
   details: () => void;
@@ -66,7 +69,7 @@ const PersonCard = memo(function PersonCard({
           <b>{data.total}</b> إجمالي الذرية
         </span>
       </div>
-      {data.direct > 0 && (
+      {data.direct > 0 && data.canCollapse && (
         <button
           className="collapse-button nodrag"
           aria-label={`${data.collapsed ? "فتح" : "إغلاق"} فرع ${data.person.name}`}
@@ -87,10 +90,14 @@ function Canvas({
   people,
   family,
   onSelect,
+  ancestorId,
+  onAncestorChange,
 }: {
   people: Person[];
   family: FamilyAnalysis;
   onSelect: (p: Person) => void;
+  ancestorId: string;
+  onAncestorChange: (id: string) => void;
 }) {
   const [horizontal, setHorizontal] = useState(false),
     [collapsed, setCollapsed] = useState<Set<string>>(new Set()),
@@ -98,13 +105,27 @@ function Canvas({
     [selected, setSelected] = useState(""),
     [notice, setNotice] = useState("");
   const flow = useReactFlow();
+  const ancestors = useMemo(
+    () => ancestorPath(ancestorId, family),
+    [ancestorId, family],
+  );
+  const ancestorIds = useMemo(
+    () => new Set(ancestors.map((p) => p.id)),
+    [ancestors],
+  );
   const layout = useMemo(() => {
     const visible: Person[] = [],
-      queue = [...family.roots];
+      queue = ancestorId ? ancestors.slice(0, 1) : [...family.roots];
     for (let i = 0; i < queue.length; i++) {
       const p = queue[i];
       visible.push(p);
-      if (!collapsed.has(p.id)) queue.push(...family.children.get(p.id)!);
+      if (ancestorId)
+        queue.push(
+          ...family.children
+            .get(p.id)!
+            .filter((child) => ancestorIds.has(child.id)),
+        );
+      else if (!collapsed.has(p.id)) queue.push(...family.children.get(p.id)!);
     }
     const graph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
     graph.setGraph({
@@ -136,7 +157,8 @@ function Canvas({
           person: p,
           ...stat,
           horizontal,
-          collapsed: collapsed.has(p.id),
+          collapsed: !ancestorId && collapsed.has(p.id),
+          canCollapse: !ancestorId,
           selected: false,
           toggle: () =>
             setCollapsed((old) => {
@@ -149,7 +171,15 @@ function Canvas({
       };
     });
     return { nodes, edges };
-  }, [family, collapsed, horizontal, onSelect]);
+  }, [
+    family,
+    collapsed,
+    horizontal,
+    onSelect,
+    ancestorId,
+    ancestors,
+    ancestorIds,
+  ]);
   const edges = layout.edges;
   const nodes = useMemo(
     () =>
@@ -160,12 +190,17 @@ function Canvas({
     [layout, selected],
   );
   useEffect(() => {
-    const timer = setTimeout(
-      () => void flow.fitView({ padding: 0.16, duration: 250 }),
-      100,
-    );
+    const timer = setTimeout(() => {
+      const first =
+        layout.nodes.find((n) => n.id === selected) ?? layout.nodes[0];
+      if (first)
+        void flow.setCenter(first.position.x + 120, first.position.y + 100, {
+          zoom: selected ? 1 : 0.9,
+          duration: 250,
+        });
+    }, 100);
     return () => clearTimeout(timer);
-  }, [horizontal, people, flow]);
+  }, [horizontal, people, ancestorId, selected, flow]);
   function search() {
     const match =
       family.byId.get(query.trim()) ??
@@ -175,6 +210,7 @@ function Canvas({
       return;
     }
     setNotice("");
+    onAncestorChange("");
     setSelected(match.id);
     setCollapsed((old) => {
       const next = new Set(old);
@@ -228,14 +264,57 @@ function Canvas({
             <Columns3 size={16} /> أفقي
           </button>
           <button
+            onClick={() => {
+              const first = nodes.find((n) => n.id === selected) ?? nodes[0];
+              if (first)
+                void flow.setCenter(
+                  first.position.x + 120,
+                  first.position.y + 63,
+                  { zoom: 1, duration: 250 },
+                );
+            }}
+          >
+            حجم مقروء 100٪
+          </button>
+          <button
             title="إعادة ضبط العرض"
             aria-label="إعادة ضبط العرض"
             onClick={() => void flow.fitView({ duration: 300, padding: 0.15 })}
           >
-            <Maximize size={17} />
+            <Maximize size={17} /> عرض الكل
           </button>
         </div>
       </div>
+      <div className="tree-extra-toolbar">
+        <span className="muted">
+          {nodes.length} فردًا ظاهرًا · حرّك الرسم لاستكشاف الفروع أو استخدم عرض
+          الكل
+        </span>
+        <ExportControls
+          nodes={nodes}
+          edges={edges}
+          people={people}
+          family={family}
+          horizontal={horizontal}
+        />
+      </div>
+      {ancestorId && (
+        <div className="notice ancestor-banner">
+          <div>
+            <strong>مسار أسلاف {family.byId.get(ancestorId)?.name}</strong>
+            <p>
+              من الجيل {(family.depth.get(ancestorId) ?? 0) + 1} إلى الجيل 1 ·
+              الشخص المختار وآباؤه فقط؛ يبقى الجذر في أعلى الرسم أو يمينه.
+            </p>
+          </div>
+          <button
+            className="button secondary"
+            onClick={() => onAncestorChange("")}
+          >
+            العودة إلى العائلة كاملة
+          </button>
+        </div>
+      )}
       {notice && (
         <p role="status" className="notice">
           {notice}
@@ -246,7 +325,7 @@ function Canvas({
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
-          fitView
+          defaultViewport={{ x: 0, y: 0, zoom: 0.9 }}
           minZoom={0.08}
           maxZoom={1.8}
           onlyRenderVisibleElements
@@ -273,6 +352,8 @@ export default function FamilyTree(props: {
   people: Person[];
   family: FamilyAnalysis;
   onSelect: (p: Person) => void;
+  ancestorId: string;
+  onAncestorChange: (id: string) => void;
 }) {
   return (
     <ReactFlowProvider>

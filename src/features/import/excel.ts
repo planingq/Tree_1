@@ -129,3 +129,30 @@ export function downloadTemplate() {
   XLSX.utils.book_append_sheet(book, sheet, "العائلة");
   XLSX.writeFile(book, "نموذج-شجرة-العائلة.xlsx");
 }
+
+export function createExportWorkbook(people: Person[]) {
+  const customKeys = [
+    ...new Set(people.flatMap((p) => Object.keys(p.customFields))),
+  ];
+  const sheet = XLSX.utils.aoa_to_sheet([
+    [...Object.values(labels), ...customKeys],
+    ...people.map((p) => [
+      p.id,
+      p.status,
+      p.siblingOrder,
+      p.name,
+      p.fatherName,
+      p.parentId,
+      ...customKeys.map((key) => p.customFields[key] ?? ""),
+    ]),
+  ]);
+  sheet["!cols"] = [14, 10, 25, 30, 30, 14, ...customKeys.map(() => 24)].map(
+    (wch) => ({ wch }),
+  );
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, sheet, "العائلة");
+  return book;
+}
+export function exportPeople(people: Person[]) {
+  XLSX.writeFile(createExportWorkbook(people), "شجرة-العائلة.xlsx");
+}

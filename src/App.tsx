@@ -106,6 +106,7 @@ export default function App() {
     [page, setPage] = useState("home"),
     [menu, setMenu] = useState(false),
     [selected, setSelected] = useState<Person | null>(null),
+    [ancestorId, setAncestorId] = useState(""),
     [reset, setReset] = useState(false);
   const family = useMemo(() => analyzeFamily(people), [people]);
   const selectPerson = useCallback((p: Person) => setSelected(p), []);
@@ -113,6 +114,7 @@ export default function App() {
     setPeople(next);
     setStorageError(saveFamily(next));
     setSelected(null);
+    setAncestorId("");
   }, []);
   if (!session) return <Login onLogin={setSession} />;
   const canEdit = session.role === "admin",
@@ -344,6 +346,8 @@ export default function App() {
                     </span>
                   </div>
                   <FamilyTree
+                    ancestorId={ancestorId}
+                    onAncestorChange={setAncestorId}
                     family={family}
                     people={people}
                     onSelect={selectPerson}
@@ -482,6 +486,16 @@ export default function App() {
             <span className={`badge ${selected.status === 2 ? "neutral" : ""}`}>
               {selected.status === 1 ? "على قيد الحياة" : "متوفى — رحمه الله"}
             </span>
+            <button
+              className="button primary ancestor-action"
+              onClick={() => {
+                setAncestorId(selected.id);
+                setPage("tree");
+                setSelected(null);
+              }}
+            >
+              عرض المختار وأسلافه إلى الجيل 1
+            </button>
             <dl className="detail-grid">
               <dt>الأب</dt>
               <dd>

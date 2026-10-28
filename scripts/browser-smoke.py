@@ -10,6 +10,8 @@ with sync_playwright() as p:
  page.locator('.person-card').first.wait_for()
  page.wait_for_timeout(700)
  page.screenshot(path='/tmp/tree-desktop.png',full_page=True)
+ page.get_by_role('button',name='إعادة ضبط العرض').click()
+ page.wait_for_timeout(500)
  assert page.locator('.person-card').count()==15
  # Collapse the top root, search a hidden descendant, open detail.
  page.get_by_role('button',name='إغلاق فرع عبدالله السالم',exact=True).first.click()

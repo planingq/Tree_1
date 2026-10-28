@@ -1506,3 +1506,70 @@ td small {
   text-align: center;
   color: #6a845a;
 }
+.tree-toolbar {
+  flex-wrap: wrap;
+}
+.tree-extra-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 22px;
+  border-bottom: 1px solid #e7ece2;
+}
+.export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.ancestor-banner {
+  margin: 12px 20px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.ancestor-banner p {
+  font-size: 11px;
+}
+.ancestor-action {
+  margin-top: 20px;
+  white-space: normal;
+}
+.person-main strong {
+  font-size: 15px;
+  line-height: 1.65;
+}
+.person-main small {
+  font-size: 10px;
+}
+.person-counts {
+  font-size: 10px;
+}
+.tree-canvas {
+  height: 620px;
+}
+@media (max-width: 650px) {
+  .tree-extra-toolbar {
+    padding: 10px 13px;
+    flex-wrap: wrap;
+  }
+  .tree-toolbar .toolbar-actions {
+    flex-wrap: wrap;
+  }
+  .tree-canvas {
+    height: 560px;
+  }
+}
+.person-main strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.person-main > span:last-child {
+  min-width: 0;
+  flex: 1;
+}
+.person-main {
+  min-height: 76px;
+}
