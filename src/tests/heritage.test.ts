@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import {
   heritageTreeLayout,
   leafOrnament,
-  HERITAGE_ROOT_EXTRA,
+  heritageNodeSize,
 } from "../features/tree/heritage";
 import { buildPrintDocument } from "../features/tree/export";
 import { CARD_WIDTH, cardHeight } from "../features/tree/presentation";
@@ -97,24 +97,18 @@ it("يصدر الجذع والأوراق والخلفية التراثية في 
     expect(r.html).toContain("#eee3c7");
     expect(r.html).toContain("&lt;script&gt;");
     expect(r.html).not.toContain("<script>");
-    expect(r.html).toContain("#a69270");
-    if (mode === "fit")
-      expect(r.pages[0].viewY + r.plan.usableH / r.plan.scale).toBeCloseTo(
-        cardHeight("الجد") + HERITAGE_ROOT_EXTRA + 8,
-      );
+    expect(r.html).toContain("#b9aa88");
     for (const page of r.pages)
       for (const n of page.nodes) {
         if (mode === "tiles") {
-          const h =
-            cardHeight(n.data.displayName ?? n.data.person.name) +
-            (n.data.root ? HERITAGE_ROOT_EXTRA : 0);
+          const h = heritageNodeSize(!!n.data.root).height;
           expect(n.position.y).toBeGreaterThanOrEqual(0);
           expect(n.position.y + h).toBeLessThanOrEqual(
             r.plan.usableH / r.plan.scale + 0.001,
           );
-          expect(n.position.x + CARD_WIDTH).toBeLessThanOrEqual(
-            r.plan.usableW / r.plan.scale + 0.001,
-          );
+          expect(
+            n.position.x + heritageNodeSize(!!n.data.root).width,
+          ).toBeLessThanOrEqual(r.plan.usableW / r.plan.scale + 0.001);
         }
       }
   }

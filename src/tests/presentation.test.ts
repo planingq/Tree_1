@@ -97,6 +97,7 @@ it("يحاذي الرسم يمينًا أو أعلى في ورقة واحدة و
       paper: "A3",
       landscape: true,
       mode: "fit",
+      singlePageLayout: "original",
       cardWidth: 65,
     });
     const page = r.pages[0];
@@ -132,6 +133,7 @@ it("يدعم 4A0 والمقاس المخصص ويرفض أبعادًا غير ص
       paper: "custom",
       landscape: true,
       mode: "fit",
+      singlePageLayout: "original",
       cardWidth: 65,
       customWidth: NaN,
     }),
@@ -169,7 +171,13 @@ it("يطبع الشجرة الصاعدة من الأسفل للأعلى مع ب�
       nodes,
       edges,
       false,
-      { paper: "A3", landscape: false, mode, cardWidth: 65 },
+      {
+        paper: "A3",
+        landscape: false,
+        mode,
+        cardWidth: 65,
+        singlePageLayout: "original",
+      },
       true,
     );
     expect(r.html).toContain("محاذاة للأسفل");

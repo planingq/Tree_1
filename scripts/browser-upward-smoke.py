@@ -9,7 +9,7 @@ with sync_playwright() as p:
  root=page.locator('.react-flow__node[data-id="001"]');child=page.locator('.react-flow__node[data-id="002"]');assert root.bounding_box()['y']>child.bounding_box()['y'];assert root.locator('.react-flow__handle-top.source').count()==1;assert child.locator('.react-flow__handle-bottom.target').count()==1
  assert page.locator('.upward-canvas').count()==1;assert page.locator('.root-sprout').count()==1
  page.screenshot(path='/tmp/tree-upward.png',full_page=True)
- page.get_by_role('button',name='تصدير وطباعة').click();dialog=page.get_by_role('dialog');dialog.get_by_label('توزيع الشجرة').select_option('fit')
+ page.get_by_role('button',name='تصدير وطباعة').click();dialog=page.get_by_role('dialog');dialog.get_by_label('توزيع الشجرة').select_option('fit');dialog.get_by_label('توزيع الصفحة الواحدة').select_option('original')
  with page.expect_popup() as info:dialog.get_by_role('button',name='فتح معاينة الطباعة / PDF').click()
  popup=info.value;popup.wait_for_load_state();assert 'شجرة صاعدة' in popup.locator('header').inner_text();assert popup.locator('svg path').first.get_attribute('d').find('C')>=0
  r=popup.locator('svg [data-person="001"]').get_attribute('transform');c=popup.locator('svg [data-person="002"]').get_attribute('transform');assert float(r.split(' ')[1].rstrip(')'))>float(c.split(' ')[1].rstrip(')'))

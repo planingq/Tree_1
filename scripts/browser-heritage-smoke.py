@@ -2,7 +2,7 @@ from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
  b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox']);page=b.new_page(viewport={'width':1440,'height':1300});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto('http://127.0.0.1:5173/',wait_until='networkidle');page.get_by_role('button',name='الدخول إلى النسخة التجريبية').click();page.locator('.person-card').first.wait_for();page.get_by_role('button',name='الشجرة التراثية',exact=True).click();page.locator('.heritage-person').first.wait_for();page.wait_for_timeout(700)
- assert page.locator('.heritage-canvas').count()==1;assert page.locator('.heritage-person').count()==15;assert page.locator('.heritage-trunk').count()==1;assert page.locator('.heritage-branch').count()==14
+ assert page.locator('.heritage-canvas').count()==1;assert page.locator('.heritage-person').count()==15;assert page.locator('.heritage-root .heritage-engraving').count()==1;assert page.locator('.heritage-branch').count()==14
  root=page.locator('.react-flow__node[data-id="001"]').bounding_box();assert all(root['y']>page.locator(f'.react-flow__node[data-id="{id}"]').bounding_box()['y'] for id in ['002','003','004'])
  boxes=[page.locator(f'.react-flow__node[data-id="{id}"]').bounding_box() for id in ['002','003','004']];assert boxes[0]['x']>boxes[1]['x']>boxes[2]['x']
  page.screenshot(path='/tmp/tree-heritage.png',full_page=True)

@@ -83,10 +83,12 @@ export default function ExportControls({
         data: {
           person: p,
           displayName: firstName(p.name),
+          generation: (family.depth.get(p.id) ?? 0) + 1,
           fullName: names.get(p.id) ?? p.name,
           showStatus: printShowStatus,
           selected: selectedIds.has(p.id),
           heritage,
+          leafSide: 1,
           root: !ids.has(p.parentId),
           ...family.stats.get(p.id)!,
         },
@@ -295,6 +297,25 @@ export default function ExportControls({
                   <option value="fit">الشجرة كاملة في صفحة واحدة</option>
                 </select>
               </label>
+              {options.mode === "fit" && !heritage && (
+                <label>
+                  توزيع الصفحة الواحدة
+                  <select
+                    aria-label="توزيع الصفحة الواحدة"
+                    value={options.singlePageLayout ?? "balanced"}
+                    onChange={(e) =>
+                      setOptions({
+                        ...options,
+                        singlePageLayout: e.target.value as
+                          "balanced" | "original",
+                      })
+                    }
+                  >
+                    <option value="balanced">توزيع متوازن يملأ الورقة</option>
+                    <option value="original">احتواء تخطيط الشاشة الأصلي</option>
+                  </select>
+                </label>
+              )}
               {options.mode === "tiles" && (
                 <label>
                   عرض بطاقة الشخص على الورق

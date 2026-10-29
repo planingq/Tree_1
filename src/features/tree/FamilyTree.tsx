@@ -1,5 +1,10 @@
 import { HeritageCard, HeritageEdge } from "./HeritageElements";
-import { heritageTreeLayout, HERITAGE_ROOT_EXTRA } from "./heritage";
+import {
+  heritageTreeLayout,
+  heritageNodeSize,
+  HERITAGE_ANCHOR_X,
+  HERITAGE_ANCHOR_Y,
+} from "./heritage";
 import { compactTreeLayout } from "./layout";
 import { filterStatus } from "./presentation";
 import type { StatusFilter } from "./presentation";
@@ -39,6 +44,7 @@ type CardData = {
   person: Person;
   fullName: string;
   heritage: boolean;
+  leafSide: number;
   showStatus: boolean;
   displayName: string;
   upward: boolean;
@@ -58,6 +64,7 @@ const PersonCard = memo(function PersonCard({
   if (data.heritage)
     return (
       <HeritageCard
+        side={data.leafSide}
         person={data.person}
         displayName={data.displayName}
         selected={data.selected}
@@ -214,7 +221,30 @@ function Canvas({
         source: p.parentId,
         target: p.id,
         type: heritage ? "heritage" : upward ? "default" : "smoothstep",
-        data: { width: Math.max(2, 15 - (family.depth.get(p.id) ?? 0) * 2) },
+        data: {
+          ornaments:
+            filtered.length <= 80
+              ? Math.min(
+                  8,
+                  Math.max(
+                    2,
+                    Math.floor(
+                      Math.hypot(
+                        positions.get(p.id)!.x - positions.get(p.parentId)!.x,
+                        positions.get(p.id)!.y - positions.get(p.parentId)!.y,
+                      ) / 220,
+                    ),
+                  ) * 2,
+                )
+              : 1,
+          width: Math.max(
+            2,
+            Math.min(
+              42,
+              Math.sqrt((family.stats.get(p.id)?.total ?? 0) + 1) * 8,
+            ),
+          ),
+        },
         pathOptions: { borderRadius: 18, offset: Math.min(14, gap / 3) },
         style: {
           stroke: upward ? "#67874c" : "#6b927b",
@@ -230,14 +260,17 @@ function Canvas({
         id: p.id,
         type: "person",
         position: pos,
-        width: CARD_WIDTH,
-        height:
-          cardHeight(firstName(p.name), showStatus) +
-          (heritage && !ids.has(p.parentId) ? HERITAGE_ROOT_EXTRA : 0),
+        width: heritage
+          ? heritageNodeSize(!ids.has(p.parentId), showStatus).width
+          : CARD_WIDTH,
+        height: heritage
+          ? heritageNodeSize(!ids.has(p.parentId), showStatus).height
+          : cardHeight(firstName(p.name), showStatus),
         data: {
           person: p,
           fullName: names.get(p.id) ?? p.name,
           heritage,
+          leafSide: 1,
           displayName: firstName(p.name),
           showStatus,
           upward,
@@ -299,8 +332,11 @@ function Canvas({
         layout.nodes.find((n) => n.id === selected) ?? layout.nodes[0];
       if (first)
         void flow.setCenter(
-          first.position.x + CARD_WIDTH / 2,
-          first.position.y + cardHeight(first.data.displayName, showStatus) / 2,
+          first.position.x + (heritage ? HERITAGE_ANCHOR_X : CARD_WIDTH / 2),
+          first.position.y +
+            (heritage
+              ? HERITAGE_ANCHOR_Y
+              : cardHeight(first.data.displayName, showStatus) / 2),
           {
             zoom: 1,
             duration: 250,
@@ -351,8 +387,11 @@ function Canvas({
     const n = nodes.find((n) => n.id === selected);
     if (n)
       void flow.setCenter(
-        n.position.x + CARD_WIDTH / 2,
-        n.position.y + cardHeight(n.data.displayName, showStatus) / 2,
+        n.position.x + (heritage ? HERITAGE_ANCHOR_X : CARD_WIDTH / 2),
+        n.position.y +
+          (heritage
+            ? HERITAGE_ANCHOR_Y
+            : cardHeight(n.data.displayName, showStatus) / 2),
         {
           zoom: 1,
           duration: 450,
@@ -424,9 +463,12 @@ function Canvas({
               const first = nodes.find((n) => n.id === selected) ?? nodes[0];
               if (first)
                 void flow.setCenter(
-                  first.position.x + CARD_WIDTH / 2,
+                  first.position.x +
+                    (heritage ? HERITAGE_ANCHOR_X : CARD_WIDTH / 2),
                   first.position.y +
-                    cardHeight(first.data.displayName, showStatus) / 2,
+                    (heritage
+                      ? HERITAGE_ANCHOR_Y
+                      : cardHeight(first.data.displayName, showStatus) / 2),
                   { zoom: 1, duration: 250 },
                 );
             }}

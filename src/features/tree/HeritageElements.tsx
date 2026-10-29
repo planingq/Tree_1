@@ -1,8 +1,9 @@
 import { Handle, Position, getBezierPath } from "@xyflow/react";
 import type { EdgeProps } from "@xyflow/react";
-import { CARD_WIDTH, cardHeight } from "./presentation";
 import {
-  HERITAGE_ROOT_EXTRA,
+  heritageNodeSize,
+  HERITAGE_ANCHOR_X,
+  HERITAGE_ANCHOR_Y,
   leafOrnament,
   trunkOrnament,
   woodBranch,
@@ -20,6 +21,7 @@ export function HeritageCard({
   collapsed,
   onDetails,
   onToggle,
+  side = 1,
 }: {
   person: Person;
   displayName: string;
@@ -32,67 +34,100 @@ export function HeritageCard({
   collapsed: boolean;
   onDetails: () => void;
   onToggle: () => void;
+  side?: number;
 }) {
-  const height = cardHeight(displayName, showStatus);
+  const size = heritageNodeSize(root, showStatus),
+    port = {
+      left: HERITAGE_ANCHOR_X,
+      top: HERITAGE_ANCHOR_Y,
+      bottom: "auto",
+      width: 0,
+      height: 0,
+      opacity: 0,
+    };
   return (
     <div
-      className={`heritage-person ${root ? "heritage-root" : ""} ${selected ? "heritage-selected" : ""} ${person.status === 2 ? "heritage-deceased" : ""} ${showStatus ? "heritage-show-status" : ""}`}
-      style={{
-        width: CARD_WIDTH,
-        height: height + (root ? HERITAGE_ROOT_EXTRA : 0),
-      }}
+      className={`heritage-person heritage-v2 ${root ? "heritage-root" : ""} ${selected ? "heritage-selected" : ""} ${person.status === 2 ? "heritage-deceased" : ""} ${showStatus ? "heritage-show-status" : ""}`}
+      style={{ width: size.width, height: size.height }}
     >
-      <Handle
-        type="target"
-        position={Position.Bottom}
-        style={{ top: height - 3, bottom: "auto" }}
-      />
+      <Handle type="target" position={Position.Bottom} style={port} />
       <svg
-        className={root ? "heritage-trunk" : "heritage-leaf"}
-        viewBox={root ? "0 0 320 280" : "0 0 160 100"}
+        className="heritage-engraving"
+        viewBox={`0 0 ${size.width} ${size.height}`}
         aria-hidden="true"
-        preserveAspectRatio="none"
-        style={root ? undefined : { height }}
-        dangerouslySetInnerHTML={{
-          __html: root
-            ? trunkOrnament()
-            : leafOrnament(person.status === 2, selected),
-        }}
-      />
+      >
+        {root ? (
+          <g dangerouslySetInnerHTML={{ __html: trunkOrnament() }} />
+        ) : (
+          <>
+            <path
+              d={`M120 130 Q120 101 ${side > 0 ? 105 : 135} 77`}
+              fill="none"
+              stroke="#665d46"
+              strokeWidth="2"
+            />
+            <g transform={`translate(${side > 0 ? 100 : 0} 3) scale(.875 .9)`}>
+              <g
+                transform={
+                  side > 0 ? undefined : "translate(160 0) scale(-1 1)"
+                }
+                dangerouslySetInnerHTML={{
+                  __html: leafOrnament(person.status === 2, selected),
+                }}
+              />
+            </g>
+          </>
+        )}
+      </svg>
       <button
         className={`heritage-name nodrag ${root ? "heritage-plaque" : ""}`}
+        style={
+          root
+            ? { left: 45, top: 197, width: 150, height: showStatus ? 75 : 58 }
+            : {
+                left: side > 0 ? 116 : 16,
+                top: 24,
+                width: 108,
+                height: showStatus ? 53 : 45,
+              }
+        }
         onClick={onDetails}
         title={`الأبناء: ${direct} · الذرية: ${total}`}
-        style={{ height: showStatus ? height - 25 : height - 15 }}
       >
-        <strong>{displayName}</strong>
+        <strong style={{ fontSize: displayName.length > 8 ? 18 : 22 }}>
+          {displayName}
+        </strong>
         {showStatus && (
           <small>{person.status === 1 ? "حي" : "متوفى — رحمه الله"}</small>
         )}
-        <small className="heritage-counts">
-          {direct} أبناء · {total} ذرية
-        </small>
       </button>
       {direct > 0 && canCollapse && (
         <button
           className="heritage-collapse nodrag"
+          style={{ left: 110, top: 135 }}
           aria-label={`${collapsed ? "فتح" : "إغلاق"} فرع ${person.name}`}
           onClick={onToggle}
         >
           {collapsed ? "+" : "−"}
         </button>
       )}
-      <Handle type="source" position={Position.Top} />
+      <Handle type="source" position={Position.Top} style={port} />
     </div>
   );
 }
 export function HeritageEdge(props: EdgeProps) {
-  const [path] = getBezierPath({ ...props, curvature: 0.4 });
-  const width = typeof props.data?.width === "number" ? props.data.width : 4;
+  const [path] = getBezierPath({ ...props, curvature: 0.48 });
+  const width = typeof props.data?.width === "number" ? props.data.width : 5;
   return (
     <g
       className="heritage-branch"
-      dangerouslySetInnerHTML={{ __html: woodBranch(path, width) }}
+      dangerouslySetInnerHTML={{
+        __html: woodBranch(
+          path,
+          width,
+          typeof props.data?.ornaments === "number" ? props.data.ornaments : 2,
+        ),
+      }}
     />
   );
 }
