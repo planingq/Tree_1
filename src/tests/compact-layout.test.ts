@@ -1,3 +1,4 @@
+import { PRINT_CARD_WIDTH, printNameHeight } from "../features/tree/printTree";
 import { expect, it } from "vitest";
 import { compactTreeLayout } from "../features/tree/layout";
 import {
@@ -104,12 +105,12 @@ it("يضبط الصفحات حسب الورق ويجمع عائلات متعدد
       for (const n of page.nodes) {
         expect(n.position.x).toBeGreaterThanOrEqual(0);
         expect(n.position.y).toBeGreaterThanOrEqual(0);
-        expect(n.position.x + CARD_WIDTH).toBeLessThanOrEqual(
+        expect(n.position.x + PRINT_CARD_WIDTH).toBeLessThanOrEqual(
           r.plan.usableW / r.plan.scale + 0.001,
         );
-        expect(
-          n.position.y + cardHeight(n.data.person.name),
-        ).toBeLessThanOrEqual(r.plan.usableH / r.plan.scale + 0.001);
+        expect(n.position.y + printNameHeight(n)).toBeLessThanOrEqual(
+          r.plan.usableH / r.plan.scale + 0.001,
+        );
       }
       for (const e of page.edges) {
         expect(instances.has(e.source)).toBe(true);

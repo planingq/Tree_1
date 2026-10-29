@@ -2010,3 +2010,44 @@ td small {
   opacity: 0;
   pointer-events: none;
 }
+.tree-workspace {
+  width: 100%;
+  min-width: 0;
+}
+.tree-workspace.tree-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  direction: rtl;
+}
+.tree-fullscreen > .tree-toolbar,
+.tree-fullscreen > .tree-extra-toolbar,
+.tree-fullscreen > .tree-view-options {
+  flex-shrink: 0;
+}
+.tree-fullscreen > .tree-canvas {
+  flex: 1;
+  height: auto !important;
+  min-height: 240px !important;
+}
+.tree-fullscreen > .tree-toolbar {
+  padding-top: 12px;
+}
+.tree-fullscreen .ancestor-banner {
+  flex-shrink: 0;
+}
+.tree-fullscreen .tree-view-options {
+  padding-block: 8px;
+}
+@media (max-width: 650px) {
+  .tree-fullscreen > .tree-canvas {
+    min-height: 260px !important;
+  }
+  .tree-fullscreen > .tree-view-options small {
+    display: none;
+  }
+}

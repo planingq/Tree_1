@@ -47,7 +47,8 @@ export default function ExportControls({
     paper: "A3",
     landscape: true,
     mode: "tiles",
-    cardWidth: 65,
+    cardWidth: 24,
+    autoCardSize: true,
   });
   const targetPeople = useMemo(
     () =>
@@ -297,55 +298,55 @@ export default function ExportControls({
                   <option value="fit">الشجرة كاملة في صفحة واحدة</option>
                 </select>
               </label>
-              {options.mode === "fit" && !heritage && (
-                <label>
-                  توزيع الصفحة الواحدة
-                  <select
-                    aria-label="توزيع الصفحة الواحدة"
-                    value={options.singlePageLayout ?? "balanced"}
-                    onChange={(e) =>
-                      setOptions({
-                        ...options,
-                        singlePageLayout: e.target.value as
-                          "balanced" | "original",
-                      })
-                    }
-                  >
-                    <option value="balanced">توزيع متوازن يملأ الورقة</option>
-                    <option value="original">احتواء تخطيط الشاشة الأصلي</option>
-                  </select>
-                </label>
-              )}
-              {options.mode === "tiles" && (
-                <label>
-                  عرض بطاقة الشخص على الورق
-                  <select
-                    value={options.cardWidth}
-                    onChange={(e) =>
-                      setOptions({
-                        ...options,
-                        cardWidth: Number(e.target.value),
-                      })
-                    }
-                  >
-                    <option value={50}>50 مم — متوسط</option>
-                    <option value={65}>65 مم — واضح</option>
-                    <option value={80}>80 مم — كبير</option>
-                  </select>
-                </label>
+              {!heritage && (
+                <>
+                  <label className="status-toggle">
+                    <input
+                      type="checkbox"
+                      checked={options.autoCardSize !== false}
+                      onChange={(e) =>
+                        setOptions({
+                          ...options,
+                          autoCardSize: e.target.checked,
+                        })
+                      }
+                    />{" "}
+                    حجم بطاقات تلقائي بحسب الورق
+                  </label>
+                  <label>
+                    عرض بطاقة الاسم المطلوب (مم)
+                    <input
+                      aria-label="عرض بطاقة الاسم للطباعة"
+                      type="number"
+                      min="8"
+                      max="80"
+                      step="1"
+                      disabled={options.autoCardSize !== false}
+                      value={options.cardWidth}
+                      onChange={(e) =>
+                        setOptions({
+                          ...options,
+                          cardWidth: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                </>
               )}
             </div>
             <p className="notice">
-              المحاذاة تلقائيًا لليمين للشجرة الأفقية، وللأعلى للعمودية وللأسفل
-              للشجرة الصاعدة. الصفحات العائلية تجمع الأب مع أبنائه المباشرين دون
-              قص البطاقات؛ عند كثرة الأبناء يتكرر الأب على صفحات المتابعة، وتظهر
-              الأحفاد في صفحات آبائهم. استخدم ورقًا أكبر أو نطاق أجيال أصغر لجمع
-              فرع أكبر في ورقة واحدة.
+              الطباعة تحفظ شكل الشجرة ومجموعات الأبناء، والبطاقات تعرض الاسم
+              فقط. خطوط كل أب تتجه مباشرة إلى أبنائه. الصفحات العائلية تجمع الأب
+              مع أبنائه المباشرين دون قص البطاقات؛ عند كثرة الأبناء يتكرر الأب
+              على صفحات المتابعة، وتظهر الأحفاد في صفحات آبائهم. استخدم ورقًا
+              أكبر أو نطاق أجيال أصغر لجمع فرع أكبر في ورقة واحدة.
             </p>
             <p className="muted">
-              PDF يحفظ الرسم بخطوط ونصوص قابلة للتكبير. بعد فتح المعاينة اختر
-              «طباعة / حفظ PDF»، ثم «حفظ بتنسيق PDF» أو طابعتك. Excel يحفظ
-              البيانات وترتيب الإخوة والحقول المخصصة؛ ولا يحفظ رسم الشجرة.
+              عند احتواء شجرة كبيرة في ورقة واحدة قد يقل المقاس الفعلي للبطاقة
+              ليبقى الرسم كاملًا؛ تعرض المعاينة المقاس النهائي. PDF يحفظ الرسم
+              بخطوط ونصوص قابلة للتكبير. بعد فتح المعاينة اختر «طباعة / حفظ
+              PDF»، ثم «حفظ بتنسيق PDF» أو طابعتك. Excel يحفظ البيانات وترتيب
+              الإخوة والحقول المخصصة؛ ولا يحفظ رسم الشجرة.
             </p>
             {error && (
               <p className="error" role="alert">

@@ -1,3 +1,4 @@
+import { PRINT_CARD_WIDTH, printNameHeight } from "../features/tree/printTree";
 import { expect, it } from "vitest";
 import {
   familyNames,
@@ -59,6 +60,7 @@ it("لا يقص أي بطاقة ويبقي الأب مع الأبناء في ك�
       landscape: false,
       mode: "tiles",
       cardWidth: 80,
+      autoCardSize: false,
     });
     expect(result.pages.length).toBeGreaterThan(1);
     const found = new Set<string>();
@@ -68,12 +70,12 @@ it("لا يقص أي بطاقة ويبقي الأب مع الأبناء في ك�
         found.add(n.id);
         expect(n.position.x).toBeGreaterThanOrEqual(-0.001);
         expect(n.position.y).toBeGreaterThanOrEqual(-0.001);
-        expect(n.position.x + CARD_WIDTH).toBeLessThanOrEqual(
+        expect(n.position.x + PRINT_CARD_WIDTH).toBeLessThanOrEqual(
           result.plan.usableW / result.plan.scale + 0.001,
         );
-        expect(
-          n.position.y + cardHeight(n.data.fullName ?? n.data.person.name),
-        ).toBeLessThanOrEqual(result.plan.usableH / result.plan.scale + 0.001);
+        expect(n.position.y + printNameHeight(n)).toBeLessThanOrEqual(
+          result.plan.usableH / result.plan.scale + 0.001,
+        );
       }
       for (const e of page.edges)
         expect(
@@ -97,15 +99,20 @@ it("يحاذي الرسم يمينًا أو أعلى في ورقة واحدة و
       paper: "A3",
       landscape: true,
       mode: "fit",
-      singlePageLayout: "original",
+
       cardWidth: 65,
     });
     const page = r.pages[0];
-    if (horizontal)
-      expect(page.viewX + r.plan.usableW / r.plan.scale).toBeCloseTo(
-        30 + CARD_WIDTH + 8,
+    for (const n of page.nodes) {
+      expect(n.position.x).toBeGreaterThanOrEqual(page.viewX);
+      expect(n.position.y).toBeGreaterThanOrEqual(page.viewY);
+      expect(n.position.x + PRINT_CARD_WIDTH).toBeLessThanOrEqual(
+        page.viewX + r.plan.usableW / r.plan.scale,
       );
-    else expect(page.viewY).toBe(22);
+      expect(n.position.y + printNameHeight(n)).toBeLessThanOrEqual(
+        page.viewY + r.plan.usableH / r.plan.scale,
+      );
+    }
     expect(r.html).not.toContain(">secret-id");
     expect(r.html).toContain('text-anchor="middle"');
   }
@@ -133,7 +140,7 @@ it("يدعم 4A0 والمقاس المخصص ويرفض أبعادًا غير ص
       paper: "custom",
       landscape: true,
       mode: "fit",
-      singlePageLayout: "original",
+
       cardWidth: 65,
       customWidth: NaN,
     }),
@@ -176,20 +183,15 @@ it("يطبع الشجرة الصاعدة من الأسفل للأعلى مع ب�
         landscape: false,
         mode,
         cardWidth: 65,
-        singlePageLayout: "original",
       },
       true,
     );
-    expect(r.html).toContain("محاذاة للأسفل");
+    expect(r.html).toContain("شجرة صاعدة");
     expect(r.html).not.toContain("اسم كامل مخفي في الرسم");
     for (const page of r.pages) {
       expect(
         page.nodes.find((n) => n.id === "root")!.position.y,
       ).toBeGreaterThan(page.nodes.find((n) => n.id === "child")!.position.y);
     }
-    if (mode === "fit")
-      expect(r.pages[0].viewY + r.plan.usableH / r.plan.scale).toBeCloseTo(
-        240 + cardHeight("محمد") + 8,
-      );
   }
 });

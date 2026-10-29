@@ -37,7 +37,7 @@ with sync_playwright() as p:
  with page.expect_download() as dl: dialog.get_by_role('button',name='تنزيل Excel',exact=True).click()
  dl.value.save_as('/tmp/tree-all-export.xlsx')
  with ZipFile('/tmp/tree-all-export.xlsx') as z: assert len(re.findall(r'<row\b',z.read('xl/worksheets/sheet1.xml').decode()))==160
- dialog.get_by_label('نطاق التصدير').select_option('visible');dialog.get_by_label('حجم الورق').select_option('A4');dialog.get_by_label('توزيع الشجرة').select_option('tiles')
+ dialog.get_by_label('نطاق التصدير').select_option('visible');dialog.get_by_label('حجم الورق').select_option('A4');dialog.get_by_label('حجم بطاقات تلقائي بحسب الورق').uncheck();dialog.get_by_label('عرض بطاقة الاسم للطباعة').fill('80');dialog.get_by_label('توزيع الشجرة').select_option('tiles')
  with page.expect_popup() as popup_info:dialog.get_by_role('button',name='فتح معاينة الطباعة / PDF').click()
  popup=popup_info.value;popup.wait_for_load_state();assert popup.locator('.sheet').count()>1
  popup.pdf(path='/tmp/tree-tiled-test.pdf',prefer_css_page_size=True,print_background=True);popup.close()

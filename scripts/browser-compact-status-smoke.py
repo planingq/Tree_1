@@ -12,7 +12,7 @@ with sync_playwright() as p:
  page.get_by_label('إظهار نص الحالة',exact=True).check();assert 'على قيد الحياة' in '\n'.join(page.locator('.person-card').all_inner_texts());page.get_by_label('إظهار نص الحالة',exact=True).uncheck()
  page.get_by_label('تصفية حالة الشجرة').select_option('2');page.wait_for_timeout(300);page.get_by_role('button',name='إعادة ضبط العرض').click();page.wait_for_timeout(450);assert page.locator('.person-card').count()==4;assert page.locator('.person-card.deceased').count()==4
  page.get_by_role('textbox',name='البحث في الشجرة').fill('3');page.get_by_role('button',name='بحث',exact=True).click();page.wait_for_timeout(450);assert page.get_by_label('تصفية حالة الشجرة').input_value()=='all';assert page.locator('.person-card.highlight').count()==1
- page.get_by_role('button',name='تصدير وطباعة').click();dialog=page.get_by_role('dialog');dialog.get_by_label('نطاق التصدير').select_option('all');dialog.get_by_label('حجم الورق').select_option('A4')
+ page.get_by_role('button',name='تصدير وطباعة').click();dialog=page.get_by_role('dialog');dialog.get_by_label('نطاق التصدير').select_option('all');dialog.get_by_label('حجم الورق').select_option('A4');dialog.get_by_label('حجم بطاقات تلقائي بحسب الورق').uncheck();dialog.get_by_label('عرض بطاقة الاسم للطباعة').fill('80')
  with page.expect_popup() as info:dialog.get_by_role('button',name='فتح معاينة الطباعة / PDF').click()
  popup=info.value;popup.wait_for_load_state();small=popup.locator('.sheet').count();assert small>1;assert not any('متوفى' in t or 'حي'==t for t in popup.locator('svg text').all_text_contents());popup.pdf(path='/tmp/compact-A4.pdf',prefer_css_page_size=True,print_background=True);popup.close()
  dialog.get_by_label('حجم الورق').select_option('A0')

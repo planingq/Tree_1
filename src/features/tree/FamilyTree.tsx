@@ -1,3 +1,4 @@
+import { lockBodyScroll } from "../../utils/scrollLock";
 import { HeritageCard, HeritageEdge } from "./HeritageElements";
 import {
   heritageTreeLayout,
@@ -16,7 +17,7 @@ import {
 } from "./presentation";
 import ExportControls from "./ExportControls";
 import { ancestorPath } from "./export";
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState, useRef } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -173,7 +174,64 @@ function Canvas({
     [status, setStatus] = useState<StatusFilter>("all"),
     [showStatus, setShowStatus] = useState(false),
     [mouseMode, setMouseMode] = useState<"pan" | "zoom">("pan");
+  const screenRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
   const flow = useReactFlow();
+  const savedViewport = useRef<ReturnType<typeof flow.getViewport> | null>(
+    null,
+  );
+  async function toggleFullscreen() {
+    if (expanded) {
+      if (document.fullscreenElement)
+        await document.exitFullscreen().catch(() => {});
+      setExpanded(false);
+      return;
+    }
+    savedViewport.current = flow.getViewport();
+    setExpanded(true);
+    if (document.documentElement.requestFullscreen)
+      await document.documentElement.requestFullscreen().catch(() => {});
+  }
+  useEffect(() => {
+    const change = () => {
+      if (!document.fullscreenElement) setExpanded(false);
+    };
+    document.addEventListener("fullscreenchange", change);
+    return () => document.removeEventListener("fullscreenchange", change);
+  }, []);
+  useEffect(() => {
+    if (!expanded) return;
+    const unlock = lockBodyScroll();
+    const close = (e: KeyboardEvent) => {
+      if (
+        e.key === "Escape" &&
+        !document.querySelector('[role="dialog"],[role="alertdialog"]')
+      ) {
+        setExpanded(false);
+        if (document.fullscreenElement)
+          void document.exitFullscreen().catch(() => {});
+      }
+    };
+    document.addEventListener("keydown", close);
+    const timer = setTimeout(
+      () => void flow.fitView({ duration: 250, padding: 0.12 }),
+      150,
+    );
+    return () => {
+      clearTimeout(timer);
+      unlock();
+      if (document.fullscreenElement === document.documentElement)
+        void document.exitFullscreen().catch(() => {});
+      document.removeEventListener("keydown", close);
+      if (savedViewport.current) {
+        const viewport = savedViewport.current;
+        setTimeout(
+          () => void flow.setViewport(viewport, { duration: 100 }),
+          100,
+        );
+      }
+    };
+  }, [expanded, flow]);
   useEffect(() => {
     setFromGeneration(1);
     setToGeneration(0);
@@ -399,7 +457,10 @@ function Canvas({
       );
   }, [selected, nodes, flow]);
   return (
-    <>
+    <div
+      ref={screenRef}
+      className={`tree-workspace ${expanded ? "tree-fullscreen" : ""}`}
+    >
       <div className="tree-toolbar">
         <form
           className="search-box"
@@ -418,6 +479,14 @@ function Canvas({
           <button type="submit">بحث</button>
         </form>
         <div className="toolbar-actions">
+          <button
+            onClick={() => void toggleFullscreen()}
+            aria-pressed={expanded}
+            aria-label={expanded ? "الخروج من ملء الشاشة" : "ملء الشاشة"}
+          >
+            <Maximize size={17} />
+            {expanded ? "الخروج من ملء الشاشة" : "ملء الشاشة"}
+          </button>
           <button
             className={!horizontal && !upward ? "active" : ""}
             onClick={() => {
@@ -662,7 +731,7 @@ function Canvas({
           <span>اضغط على البطاقة لعرض التفاصيل</span>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 export default function FamilyTree(props: {

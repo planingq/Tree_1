@@ -1,3 +1,4 @@
+import { lockBodyScroll } from "../utils/scrollLock";
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 export default function Dialog({
@@ -39,11 +40,10 @@ export default function Dialog({
       }
     }
     document.addEventListener("keydown", key);
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockBodyScroll();
     return () => {
       document.removeEventListener("keydown", key);
-      document.body.style.overflow = overflow;
+      unlock();
       previous?.focus();
     };
   }, []);

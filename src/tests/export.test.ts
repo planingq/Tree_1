@@ -88,7 +88,9 @@ describe("الأسلاف والتصدير والطباعة", () => {
     expect(html).toContain("&lt;script&gt;");
     expect(html).not.toContain("<script>");
     expect(html).toContain("<svg");
-    expect(html).toContain("إجمالي الذرية: 5");
+    expect(html).not.toContain("إجمالي الذرية");
+    expect(html).not.toContain("الأبناء:");
+    expect(html).toContain("&lt;script&gt;");
     expect(plan.pages).toBe(1);
     expect(() =>
       buildPrintDocument([], [], false, {
