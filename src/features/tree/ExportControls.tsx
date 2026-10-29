@@ -1,3 +1,4 @@
+import { heritageTreeLayout } from "./heritage";
 import { compactTreeLayout } from "./layout";
 import { filterStatus } from "./presentation";
 import type { StatusFilter } from "./presentation";
@@ -20,6 +21,7 @@ export default function ExportControls({
   gap,
   showStatus,
   status,
+  heritage,
 }: {
   nodes: PrintNode[];
   edges: { source: string; target: string }[];
@@ -31,6 +33,7 @@ export default function ExportControls({
   gap: number;
   showStatus: boolean;
   status: StatusFilter;
+  heritage: boolean;
 }) {
   const [open, setOpen] = useState(false),
     [scope, setScope] = useState("visible"),
@@ -60,13 +63,15 @@ export default function ExportControls({
     [scope, people, nodes, family, fromGeneration, toGeneration, printStatus],
   );
   const printData = useMemo(() => {
-    const positions = compactTreeLayout(
-        targetPeople,
-        horizontal,
-        upward,
-        gap,
-        printShowStatus,
-      ),
+    const positions = heritage
+        ? heritageTreeLayout(targetPeople, gap, printShowStatus)
+        : compactTreeLayout(
+            targetPeople,
+            horizontal,
+            upward,
+            gap,
+            printShowStatus,
+          ),
       ids = new Set(targetPeople.map((p) => p.id)),
       selectedIds = new Set(
         nodes.filter((n) => n.data.selected).map((n) => n.id),
@@ -81,6 +86,8 @@ export default function ExportControls({
           fullName: names.get(p.id) ?? p.name,
           showStatus: printShowStatus,
           selected: selectedIds.has(p.id),
+          heritage,
+          root: !ids.has(p.parentId),
           ...family.stats.get(p.id)!,
         },
       })),
@@ -90,6 +97,7 @@ export default function ExportControls({
     };
   }, [
     targetPeople,
+    heritage,
     horizontal,
     upward,
     gap,
@@ -336,6 +344,7 @@ export default function ExportControls({
                       horizontal,
                       {
                         ...options,
+                        design: heritage ? "heritage" : "classic",
                         generationLabel: `الأجيال ${fromGeneration} إلى ${toGeneration || family.generations.length}`,
                       },
                       upward,

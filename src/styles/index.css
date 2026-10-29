@@ -1763,3 +1763,138 @@ td small {
 .person-card.deceased .person-counts {
   color: #64715b;
 }
+.heritage-canvas {
+  background-color: #eee3c7;
+  background-image:
+    radial-gradient(ellipse at center, transparent 35%, #8e754a30 100%),
+    repeating-linear-gradient(
+      18deg,
+      #ffffff08 0px,
+      #ffffff08 2px,
+      #7d684708 3px,
+      transparent 5px
+    );
+  border-block: 1px solid #b19a6c55;
+}
+.heritage-person {
+  position: relative;
+  filter: drop-shadow(0 3px 3px #59492a18);
+  font-family: "Noto Sans Arabic", Tahoma, sans-serif;
+}
+.heritage-leaf {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  pointer-events: none;
+}
+.heritage-name {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 100%;
+  padding: 12px 20px;
+  color: #403622;
+  text-align: center;
+}
+.heritage-name strong {
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 700;
+}
+.heritage-name small {
+  font-size: 8px;
+  color: #6a5a3e;
+}
+.heritage-counts {
+  opacity: 0.8;
+}
+.heritage-collapse {
+  position: absolute;
+  left: calc(50% - 9px);
+  top: -9px;
+  z-index: 3;
+  border: 1px solid #91805d;
+  background: #ebdfc1;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+  line-height: 14px;
+  color: #665332;
+}
+.heritage-trunk {
+  position: absolute;
+  left: -80px;
+  top: 0;
+  width: 320px;
+  height: 280px;
+  pointer-events: none;
+}
+.heritage-root .heritage-plaque {
+  height: 58px !important;
+  margin-top: 13px;
+  padding: 4px 8px;
+  border: 2px double #5e4e31;
+  background: #e9debe;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px #493a2133;
+}
+.heritage-selected .heritage-name strong {
+  color: #3b2b0c;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.heritage-selected {
+  filter: drop-shadow(0 0 7px #75591dbb);
+}
+.heritage-deceased .heritage-name {
+  color: #413b2c;
+}
+.heritage-canvas .react-flow__handle {
+  background: #887752 !important;
+  border-color: #e9dbbb !important;
+}
+.heritage-canvas .canvas-legend {
+  background: #ece0c4e8;
+  border-color: #b6a17b55;
+  color: #756548;
+}
+.heritage-canvas .react-flow__minimap {
+  background: #f0e7d0 !important;
+  border-color: #b3a078;
+}
+.heritage-canvas .react-flow__controls button {
+  background: #f3e9d1 !important;
+}
+.heritage-canvas:after {
+  content: "جذور العائلة · حكاية تتوارثها الأجيال";
+  position: absolute;
+  top: 15px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 12px;
+  color: #82704f;
+  pointer-events: none;
+  letter-spacing: 0.2px;
+}
+.heritage-root .heritage-trunk {
+  left: 0;
+  width: 160px;
+  height: 280px;
+}
+.heritage-root.heritage-show-status .heritage-plaque {
+  height: 76px !important;
+}
+.heritage-canvas {
+  background-image:
+    radial-gradient(ellipse at center, #fff9e838, transparent 65%),
+    radial-gradient(ellipse at center, transparent 35%, #8e754a24 100%);
+}
+.heritage-root.heritage-deceased .heritage-plaque {
+  background: #c5bca5;
+}

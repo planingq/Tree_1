@@ -1,3 +1,5 @@
+import { HeritageCard, HeritageEdge } from "./HeritageElements";
+import { heritageTreeLayout, HERITAGE_ROOT_EXTRA } from "./heritage";
 import { compactTreeLayout } from "./layout";
 import { filterStatus } from "./presentation";
 import type { StatusFilter } from "./presentation";
@@ -36,6 +38,7 @@ import "@xyflow/react/dist/style.css";
 type CardData = {
   person: Person;
   fullName: string;
+  heritage: boolean;
   showStatus: boolean;
   displayName: string;
   upward: boolean;
@@ -52,6 +55,22 @@ type CardData = {
 const PersonCard = memo(function PersonCard({
   data,
 }: NodeProps<Node<CardData>>) {
+  if (data.heritage)
+    return (
+      <HeritageCard
+        person={data.person}
+        displayName={data.displayName}
+        selected={data.selected}
+        root={data.root}
+        showStatus={data.showStatus}
+        direct={data.direct}
+        total={data.total}
+        collapsed={data.collapsed}
+        canCollapse={data.canCollapse}
+        onDetails={data.details}
+        onToggle={data.toggle}
+      />
+    );
   return (
     <div
       style={{
@@ -118,6 +137,7 @@ const PersonCard = memo(function PersonCard({
   );
 });
 const nodeTypes = { person: PersonCard };
+const edgeTypes = { heritage: HeritageEdge };
 function Canvas({
   people,
   family,
@@ -135,6 +155,7 @@ function Canvas({
 }) {
   const [horizontal, setHorizontal] = useState(false),
     [upward, setUpward] = useState(false),
+    [heritage, setHeritage] = useState(false),
     [collapsed, setCollapsed] = useState<Set<string>>(new Set()),
     [query, setQuery] = useState(""),
     [selected, setSelected] = useState(""),
@@ -182,13 +203,9 @@ function Canvas({
       ),
       status,
     );
-    const positions = compactTreeLayout(
-      filtered,
-      horizontal,
-      upward,
-      gap,
-      showStatus,
-    );
+    const positions = heritage
+      ? heritageTreeLayout(filtered, gap, showStatus)
+      : compactTreeLayout(filtered, horizontal, upward, gap, showStatus);
     const ids = new Set(filtered.map((p) => p.id));
     const edges = filtered
       .filter((p) => ids.has(p.parentId))
@@ -196,7 +213,8 @@ function Canvas({
         id: `${p.parentId}-${p.id}`,
         source: p.parentId,
         target: p.id,
-        type: upward ? "default" : "smoothstep",
+        type: heritage ? "heritage" : upward ? "default" : "smoothstep",
+        data: { width: Math.max(2, 15 - (family.depth.get(p.id) ?? 0) * 2) },
         pathOptions: { borderRadius: 18, offset: Math.min(14, gap / 3) },
         style: {
           stroke: upward ? "#67874c" : "#6b927b",
@@ -213,10 +231,13 @@ function Canvas({
         type: "person",
         position: pos,
         width: CARD_WIDTH,
-        height: cardHeight(firstName(p.name), showStatus),
+        height:
+          cardHeight(firstName(p.name), showStatus) +
+          (heritage && !ids.has(p.parentId) ? HERITAGE_ROOT_EXTRA : 0),
         data: {
           person: p,
           fullName: names.get(p.id) ?? p.name,
+          heritage,
           displayName: firstName(p.name),
           showStatus,
           upward,
@@ -226,12 +247,14 @@ function Canvas({
           collapsed: !ancestorId && collapsed.has(p.id),
           canCollapse: !ancestorId,
           selected: false,
-          toggle: () =>
+          toggle: () => {
+            setSelected(p.id);
             setCollapsed((old) => {
               const next = new Set(old);
               next.has(p.id) ? next.delete(p.id) : next.add(p.id);
               return next;
-            }),
+            });
+          },
           details: () => {
             setSelected(p.id);
             onSelect(p);
@@ -245,6 +268,7 @@ function Canvas({
     collapsed,
     horizontal,
     upward,
+    heritage,
     onSelect,
     ancestorId,
     ancestors,
@@ -267,6 +291,10 @@ function Canvas({
   );
   useEffect(() => {
     const timer = setTimeout(() => {
+      if (heritage && !selected) {
+        void flow.fitView({ padding: 0.18, maxZoom: 1, duration: 300 });
+        return;
+      }
       const first =
         layout.nodes.find((n) => n.id === selected) ?? layout.nodes[0];
       if (first)
@@ -283,6 +311,7 @@ function Canvas({
   }, [
     horizontal,
     upward,
+    heritage,
     people,
     ancestorId,
     selected,
@@ -355,6 +384,7 @@ function Canvas({
             onClick={() => {
               setHorizontal(false);
               setUpward(false);
+              setHeritage(false);
             }}
           >
             <Rows3 size={16} /> عمودي
@@ -364,18 +394,30 @@ function Canvas({
             onClick={() => {
               setHorizontal(true);
               setUpward(false);
+              setHeritage(false);
             }}
           >
             <Columns3 size={16} /> أفقي
           </button>
           <button
-            className={upward ? "active" : ""}
+            className={upward && !heritage ? "active" : ""}
             onClick={() => {
               setHorizontal(false);
               setUpward(true);
+              setHeritage(false);
             }}
           >
             <Sprout size={17} /> شجرة صاعدة
+          </button>
+          <button
+            className={heritage ? "active" : ""}
+            onClick={() => {
+              setHeritage(true);
+              setUpward(true);
+              setHorizontal(false);
+            }}
+          >
+            <Sprout size={17} /> الشجرة التراثية
           </button>
           <button
             onClick={() => {
@@ -499,6 +541,7 @@ function Canvas({
           family={family}
           horizontal={horizontal}
           upward={upward}
+          heritage={heritage}
           showStatus={showStatus}
           status={status}
           names={names}
@@ -534,11 +577,15 @@ function Canvas({
           {notice}
         </p>
       )}
-      <div className={`tree-canvas ${upward ? "upward-canvas" : ""}`} dir="ltr">
+      <div
+        className={`tree-canvas ${heritage ? "heritage-canvas" : upward ? "upward-canvas" : ""}`}
+        dir="ltr"
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           defaultViewport={{ x: 0, y: 0, zoom: 1 }}
           panOnDrag
           panOnScroll={mouseMode === "pan"}
@@ -551,9 +598,13 @@ function Canvas({
           onlyRenderVisibleElements
           nodesDraggable={false}
         >
-          <Background color="#c8d8cd" gap={22} />
+          {!heritage && <Background color="#c8d8cd" gap={22} />}
           <Controls showInteractive={false} />
-          <MiniMap pannable zoomable nodeColor="#7da48d" />
+          <MiniMap
+            pannable
+            zoomable
+            nodeColor={heritage ? "#b5a17e" : "#7da48d"}
+          />
         </ReactFlow>
         <div className="canvas-legend" dir="rtl">
           {showStatus && (

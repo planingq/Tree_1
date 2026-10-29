@@ -1,0 +1,17 @@
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox']);page=b.new_page(viewport={'width':1440,'height':1300});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+ page.goto('http://127.0.0.1:5173/',wait_until='networkidle');page.get_by_role('button',name='الدخول إلى النسخة التجريبية').click();page.locator('.person-card').first.wait_for();page.get_by_role('button',name='الشجرة التراثية',exact=True).click();page.locator('.heritage-person').first.wait_for();page.wait_for_timeout(700)
+ assert page.locator('.heritage-canvas').count()==1;assert page.locator('.heritage-person').count()==15;assert page.locator('.heritage-trunk').count()==1;assert page.locator('.heritage-branch').count()==14
+ root=page.locator('.react-flow__node[data-id="001"]').bounding_box();assert all(root['y']>page.locator(f'.react-flow__node[data-id="{id}"]').bounding_box()['y'] for id in ['002','003','004'])
+ boxes=[page.locator(f'.react-flow__node[data-id="{id}"]').bounding_box() for id in ['002','003','004']];assert boxes[0]['x']>boxes[1]['x']>boxes[2]['x']
+ page.screenshot(path='/tmp/tree-heritage.png',full_page=True)
+ page.get_by_role('textbox',name='البحث في الشجرة').fill('005');page.get_by_role('button',name='بحث',exact=True).click();page.locator('.heritage-selected').wait_for();page.locator('.heritage-selected .heritage-name').click();assert page.locator('#detail-title').inner_text()=='خالد محمد عبدالله السالم';page.keyboard.press('Escape')
+ page.get_by_role('button',name='تصدير وطباعة').click();dialog=page.get_by_role('dialog');dialog.get_by_label('توزيع الشجرة').select_option('fit');dialog.get_by_label('نطاق التصدير').select_option('all');dialog.get_by_label('حجم الورق').select_option('A0')
+ with page.expect_popup() as info:dialog.get_by_role('button',name='فتح معاينة الطباعة / PDF').click()
+ popup=info.value;popup.wait_for_load_state();assert popup.locator('svg [data-person]').count()==15;assert 'الشجرة التراثية' in popup.locator('header').inner_text();assert '#eee3c7' in popup.content();popup.pdf(path='/tmp/heritage-A0.pdf',prefer_css_page_size=True,print_background=True);popup.close();page.keyboard.press('Escape')
+ page.get_by_role('button',name='إعادة ضبط العرض').click();page.wait_for_timeout(400);page.locator('.react-flow__node[data-id="001"] .heritage-collapse').click();page.wait_for_timeout(500);assert page.locator('.heritage-person').count()==1;page.get_by_role('button',name='فتح فرع عبدالله السالم',exact=True).click();page.get_by_role('button',name='إعادة ضبط العرض').click();page.wait_for_timeout(400);assert page.locator('.heritage-person').count()==15
+ page.get_by_label('تصفية حالة الشجرة').select_option('2');page.get_by_role('button',name='إعادة ضبط العرض').click();page.wait_for_timeout(400);assert page.locator('.heritage-person').count()==2;assert page.locator('.heritage-deceased').count()==2;page.get_by_label('تصفية حالة الشجرة').select_option('all')
+ page.set_viewport_size({'width':390,'height':844});assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+ page.get_by_role('button',name='عمودي',exact=True).click();assert page.locator('.heritage-canvas').count()==0;page.locator('.person-card').first.wait_for();assert not errors,errors
+ print('PASS: heritage leaf nodes, parchment/trunk/wood branches, root below crown, RTL siblings, search/details, A0 PDF, collapse/expand, status filters, mobile and classic mode; no JS errors.');b.close()

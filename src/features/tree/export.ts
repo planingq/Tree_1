@@ -1,3 +1,9 @@
+import {
+  HERITAGE_ROOT_EXTRA,
+  leafOrnament,
+  trunkOrnament,
+  woodBranch,
+} from "./heritage";
 import type { Person } from "../../types";
 import type { FamilyAnalysis } from "../../utils/family";
 import { CARD_WIDTH, cardHeight, wrapName } from "./presentation";
@@ -31,6 +37,7 @@ export type PrintOptions = {
   customWidth?: number;
   customHeight?: number;
   generationLabel?: string;
+  design?: "classic" | "heritage";
 };
 export function printPlan(
   width: number,
@@ -76,13 +83,16 @@ export type PrintNode = {
     displayName?: string;
     selected?: boolean;
     showStatus?: boolean;
+    heritage?: boolean;
+    root?: boolean;
     instanceKey?: string;
   };
 };
 const nameOf = (n: PrintNode) =>
   n.data.displayName ?? n.data.fullName ?? n.data.person.name;
 const nodeH = (n: PrintNode) =>
-  cardHeight(nameOf(n), n.data.showStatus ?? false);
+  cardHeight(nameOf(n), n.data.showStatus ?? false) +
+  (n.data.heritage && n.data.root ? HERITAGE_ROOT_EXTRA : 0);
 export type FamilyPrintPage = {
   nodes: PrintNode[];
   edges: { source: string; target: string }[];
@@ -232,6 +242,7 @@ function drawing(
   edges: { source: string; target: string }[],
   horizontal: boolean,
   upward = false,
+  heritage = false,
 ) {
   const byId = new Map(nodes.map((n) => [n.data.instanceKey ?? n.id, n]));
   const lines = edges
@@ -243,6 +254,10 @@ function drawing(
         y1 = a.position.y + (horizontal ? nodeH(a) / 2 : upward ? 0 : nodeH(a)),
         x2 = b.position.x + (horizontal ? CARD_WIDTH : CARD_WIDTH / 2),
         y2 = b.position.y + (horizontal ? nodeH(b) / 2 : upward ? nodeH(b) : 0);
+      if (heritage) {
+        const path = `M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}`;
+        return woodBranch(path, a.data.root ? 14 : 6);
+      }
       return `<path d="M${x1},${y1} ${upward ? `C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}` : horizontal ? `H${(x1 + x2) / 2} V${y2} H${x2}` : `V${(y1 + y2) / 2} H${x2} V${y2}`}" fill="none" stroke="#477a60" stroke-width="2" stroke-linejoin="round"/>`;
     })
     .join("");
@@ -251,6 +266,11 @@ function drawing(
       const p = n.data.person,
         h = nodeH(n),
         lines = wrapName(nameOf(n));
+      if (heritage) {
+        const base = cardHeight(nameOf(n), n.data.showStatus ?? false),
+          root = !!n.data.root;
+        return `<g data-person="${escape(n.id)}" transform="translate(${n.position.x} ${n.position.y})">${root ? `<svg width="160" height="${h}" viewBox="0 0 320 280" preserveAspectRatio="none">${trunkOrnament()}</svg><rect y="12" width="160" height="${n.data.showStatus ? 76 : 58}" rx="4" fill="${p.status === 2 ? "#bfb8a4" : "#eadfc3"}" stroke="#685334" stroke-width="2"/>` : `<svg width="160" height="${base}" viewBox="0 0 160 100" preserveAspectRatio="none">${leafOrnament(p.status === 2, n.data.selected)}</svg>`}<text x="80" y="${root ? 35 : base * 0.43}" text-anchor="middle" direction="rtl" font-size="15" font-weight="bold" fill="#493c25">${escape(nameOf(n))}</text>${n.data.showStatus ? `<text x="80" y="${root ? 53 : base * 0.61}" text-anchor="middle" direction="rtl" font-size="9" fill="#6c5b3b">${p.status === 1 ? "حي" : "متوفى — رحمه الله"}</text>` : ""}<text x="80" y="${root ? (n.data.showStatus ? 72 : 55) : base * 0.79}" text-anchor="middle" direction="rtl" font-size="8" fill="#6c5b3b">${n.data.direct} أبناء · ${n.data.total} ذرية</text></g>`;
+      }
       return `<g data-person="${escape(n.id)}" transform="translate(${n.position.x} ${n.position.y})"><rect width="${CARD_WIDTH}" height="${h}" rx="12" fill="${n.data.selected ? "#e8f3df" : p.status === 2 ? "#e1e3dc" : "white"}" stroke="${n.data.selected ? "#22653d" : "#729781"}" stroke-width="${n.data.selected ? 3 : 1}"/><text x="${CARD_WIDTH / 2}" y="28" text-anchor="middle" direction="rtl" font-size="16" font-weight="bold">${lines.map((line, i) => `<tspan x="${CARD_WIDTH / 2}" dy="${i ? 24 : 0}">${escape(line)}</tspan>`).join("")}</text>${n.data.showStatus ? `<text x="${CARD_WIDTH / 2}" y="${h - 39}" text-anchor="middle" direction="rtl" font-size="11">${p.status === 1 ? "حي" : "متوفى — رحمه الله"}</text>` : ""}<text x="${CARD_WIDTH / 2}" y="${h - 19}" text-anchor="middle" direction="rtl" font-size="11">الأبناء: ${n.data.direct} · إجمالي الذرية: ${n.data.total}</text></g>`;
     })
     .join("");
@@ -298,7 +318,7 @@ export function buildPrintDocument(
   const content = pages
     .map(
       (page, i) =>
-        `<section class="sheet"><header><span>شجرة العائلة · ${escape(page.label)} · ${escape(options.generationLabel ?? "كل الأجيال")}</span><small>صفحة ${i + 1}/${pages.length} · ${horizontal ? "محاذاة لليمين" : upward ? "محاذاة للأسفل — شجرة صاعدة" : "محاذاة للأعلى"}</small></header><svg xmlns="http://www.w3.org/2000/svg" width="${plan.usableW}mm" height="${plan.usableH}mm" viewBox="${page.viewX} ${page.viewY} ${viewW} ${viewH}" style="font-family:Tahoma,Arial,sans-serif">${drawing(page.nodes, page.edges, horizontal, upward)}</svg></section>`,
+        `<section class="sheet"><header><span>${options.design === "heritage" ? "الشجرة التراثية" : "شجرة العائلة"} · ${escape(page.label)} · ${escape(options.generationLabel ?? "كل الأجيال")}</span><small>صفحة ${i + 1}/${pages.length} · ${horizontal ? "محاذاة لليمين" : upward ? "محاذاة للأسفل — شجرة صاعدة" : "محاذاة للأعلى"}</small></header><svg xmlns="http://www.w3.org/2000/svg" width="${plan.usableW}mm" height="${plan.usableH}mm" viewBox="${page.viewX} ${page.viewY} ${viewW} ${viewH}" style="font-family:Tahoma,Arial,sans-serif;${options.design === "heritage" ? "background:#eee3c7" : ""}">${drawing(page.nodes, page.edges, horizontal, upward, options.design === "heritage")}</svg></section>`,
     )
     .join("");
   return {
