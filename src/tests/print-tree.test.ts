@@ -58,7 +58,7 @@ it("يحافظ على العائلات المتصلة وترتيب الأجيا�
       if (horizontal) expect(a.position.x).toBeGreaterThan(b.position.x);
       else if (upward) expect(a.position.y).toBeGreaterThan(b.position.y);
       else expect(a.position.y).toBeLessThan(b.position.y);
-      expect(a.data.printBus).toBeDefined();
+      expect(b.data.printRoute).toBeDefined();
     }
     for (let i = 0; i < nodes.length; i++)
       for (let j = i + 1; j < nodes.length; j++) {
@@ -90,9 +90,11 @@ it("يطبع الاسم وحده ويحتوي جميع الأشخاص والرو
   expect(r.html).not.toContain("الأب:");
   expect(r.html).not.toContain("الأبناء:");
   expect(r.html).not.toContain("إجمالي الذرية:");
-  expect(r.pages[0].nodes.every((n) => n.data.printBus !== undefined)).toBe(
-    true,
-  );
+  expect(
+    r.pages[0].nodes.every(
+      (n) => !n.data.person.parentId || n.data.printRoute !== undefined,
+    ),
+  ).toBe(true);
 });
 it("يصغر البطاقة بالتحكم اليدوي ويكيّف الوضع التلقائي مع الورق", () => {
   const f = fixture(),

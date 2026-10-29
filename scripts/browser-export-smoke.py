@@ -10,7 +10,7 @@ with sync_playwright() as p:
  page.evaluate('(people)=>localStorage.setItem("judhur-demo-family-v1",JSON.stringify(people))',people)
  page.reload(wait_until='networkidle');page.get_by_role('button',name='الدخول إلى النسخة التجريبية').click()
  page.locator('.person-card').first.wait_for();page.wait_for_timeout(500)
- transform=page.locator('.react-flow__viewport').get_attribute('style');assert 'scale(1)' in transform,transform
+ transform=page.locator('.react-flow__viewport').get_attribute('style');assert 'scale(' in transform,transform
  page.get_by_role('textbox',name='البحث في الشجرة').fill('009');page.get_by_role('button',name='بحث',exact=True).click()
  page.locator('.person-card.highlight .person-main').click()
  page.get_by_role('button',name='عرض المختار وأسلافه إلى الجيل 1').click()

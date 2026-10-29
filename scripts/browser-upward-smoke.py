@@ -11,9 +11,9 @@ with sync_playwright() as p:
  page.screenshot(path='/tmp/tree-upward.png',full_page=True)
  page.get_by_role('button',name='تصدير وطباعة').click();dialog=page.get_by_role('dialog');dialog.get_by_label('توزيع الشجرة').select_option('fit')
  with page.expect_popup() as info:dialog.get_by_role('button',name='فتح معاينة الطباعة / PDF').click()
- popup=info.value;popup.wait_for_load_state();assert 'شجرة صاعدة' in popup.locator('header').inner_text();assert popup.locator('svg path').first.get_attribute('d').find('C')>=0
+ popup=info.value;popup.wait_for_load_state();assert 'شجرة صاعدة' in popup.locator('header').inner_text();assert popup.locator('svg path').first.get_attribute('d').find('L')>=0
  r=popup.locator('svg [data-person="001"]').get_attribute('transform');c=popup.locator('svg [data-person="002"]').get_attribute('transform');assert float(r.split(' ')[1].rstrip(')'))>float(c.split(' ')[1].rstrip(')'))
  assert popup.locator('svg [data-person="005"] text').first.text_content()=='خالد';popup.pdf(path='/tmp/upward-tree.pdf',prefer_css_page_size=True,print_background=True);popup.close();page.keyboard.press('Escape')
  page.get_by_role('button',name='أفقي',exact=True).click();assert page.locator('.upward-canvas').count()==0
  page.get_by_role('button',name='عمودي',exact=True).click();assert page.locator('.upward-canvas').count()==0
- assert not errors,errors;print('PASS: compact 160x92 first-name cards; full lineage details; bottom-up roots/handles and curved branches; matching PDF; existing directions preserved; no page errors.');b.close()
+ assert not errors,errors;print('PASS: compact 160x92 first-name cards; full lineage details; bottom-up roots/handles and shared family connector lanes; matching PDF; existing directions preserved; no page errors.');b.close()

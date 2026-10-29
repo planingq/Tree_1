@@ -358,8 +358,8 @@ export default function App() {
                 </section>
                 {page === "home" && (
                   <div className="bottom-grid">
-                    <section className="heritage-card">
-                      <span className="heritage-art">
+                    <section className="memory-card">
+                      <span className="memory-art">
                         <Sprout size={75} strokeWidth={1} />
                       </span>
                       <div>

@@ -3,19 +3,13 @@ import {
   printNameHeight,
   printNameLines,
   printTreeLayout,
+  printBounds,
+  spreadPrintNodes,
 } from "./printTree";
-import { spreadArtworkToPage } from "./pageLayout";
-import {
-  heritageNodeSize,
-  HERITAGE_ANCHOR_X,
-  HERITAGE_ANCHOR_Y,
-  leafOrnament,
-  trunkOrnament,
-  woodBranch,
-} from "./heritage";
+import { routePath } from "./familyLayout";
+import type { Point } from "./familyLayout";
 import type { Person } from "../../types";
 import type { FamilyAnalysis } from "../../utils/family";
-import { CARD_WIDTH, cardHeight, wrapName } from "./presentation";
 export function ancestorPath(id: string, family: FamilyAnalysis): Person[] {
   const result: Person[] = [],
     seen = new Set<string>();
@@ -46,8 +40,8 @@ export type PrintOptions = {
   customWidth?: number;
   customHeight?: number;
   generationLabel?: string;
-  design?: "classic" | "heritage";
   autoCardSize?: boolean;
+  gap?: number;
 };
 export function printPlan(
   width: number,
@@ -77,8 +71,7 @@ export function printPlan(
   const scale =
     options.mode === "fit"
       ? Math.min(usableW / width, usableH / height)
-      : options.cardWidth /
-        (options.design === "heritage" ? 240 : PRINT_CARD_WIDTH);
+      : options.cardWidth / PRINT_CARD_WIDTH;
   const cols = Math.max(1, Math.ceil((width * scale) / usableW - 1e-8)),
     rows = Math.max(1, Math.ceil((height * scale) / usableH - 1e-8));
   return { pw, ph, usableW, usableH, scale, cols, rows, pages: cols * rows };
@@ -94,25 +87,16 @@ export type PrintNode = {
     displayName?: string;
     selected?: boolean;
     showStatus?: boolean;
-    heritage?: boolean;
     root?: boolean;
     instanceKey?: string;
     generation?: number;
-    printParentLabel?: string;
-    printBus?: number;
-    leafSide?: number;
+    printRoute?: Point[];
   };
 };
 const nameOf = (n: PrintNode) =>
   n.data.displayName ?? n.data.fullName ?? n.data.person.name;
-const nodeH = (n: PrintNode) =>
-  n.data.heritage
-    ? heritageNodeSize(!!n.data.root, n.data.showStatus ?? false).height
-    : printNameHeight(n);
-const nodeW = (n: PrintNode) =>
-  n.data.heritage
-    ? heritageNodeSize(!!n.data.root, n.data.showStatus ?? false).width
-    : PRINT_CARD_WIDTH;
+const nodeH = printNameHeight;
+const nodeW = (_n?: PrintNode) => PRINT_CARD_WIDTH;
 export type FamilyPrintPage = {
   nodes: PrintNode[];
   edges: { source: string; target: string }[];
@@ -221,7 +205,11 @@ export function familyPrintPages(
       current.nodes.push(
         ...local.map((n) => ({
           ...n,
-          data: { ...n.data, instanceKey: token + n.id, printBus: undefined },
+          data: {
+            ...n.data,
+            instanceKey: token + n.id,
+            printRoute: undefined,
+          },
           position: { x: n.position.x + shiftX, y: n.position.y + shiftY },
         })),
       );
@@ -263,7 +251,6 @@ function drawing(
   edges: { source: string; target: string }[],
   horizontal: boolean,
   upward = false,
-  heritage = false,
   lineWidth = 1.7,
 ) {
   const byId = new Map(nodes.map((n) => [n.data.instanceKey ?? n.id, n]));
@@ -272,60 +259,23 @@ function drawing(
       const a = byId.get(e.source),
         b = byId.get(e.target);
       if (!a || !b) return "";
-      const x1 =
-          a.position.x +
-          (heritage
-            ? HERITAGE_ANCHOR_X
-            : horizontal
-              ? 0
-              : PRINT_CARD_WIDTH / 2),
-        y1 =
-          a.position.y +
-          (heritage
-            ? HERITAGE_ANCHOR_Y
-            : horizontal
-              ? nodeH(a) / 2
-              : upward
-                ? 0
-                : nodeH(a)),
+      const x1 = a.position.x + (horizontal ? 0 : PRINT_CARD_WIDTH / 2),
+        y1 = a.position.y + (horizontal ? nodeH(a) / 2 : upward ? 0 : nodeH(a)),
         x2 =
-          b.position.x +
-          (heritage
-            ? HERITAGE_ANCHOR_X
-            : horizontal
-              ? PRINT_CARD_WIDTH
-              : PRINT_CARD_WIDTH / 2),
-        y2 =
-          b.position.y +
-          (heritage
-            ? HERITAGE_ANCHOR_Y
-            : horizontal
-              ? nodeH(b) / 2
-              : upward
-                ? nodeH(b)
-                : 0);
-      if (heritage) {
-        const path = `M${x1},${y1} C${x1},${a.data.printBus ?? (y1 + y2) / 2} ${x2},${a.data.printBus ?? (y1 + y2) / 2} ${x2},${y2}`;
-        return woodBranch(
-          path,
-          a.data.root ? 22 : 9,
-          nodes.length <= 80 ? 4 : 1,
-        );
-      }
-      return `<path data-source="${escape(e.source)}" data-target="${escape(e.target)}" d="M${x1},${y1} ${upward ? `C${x1},${a.data.printBus ?? (y1 + y2) / 2} ${x2},${a.data.printBus ?? (y1 + y2) / 2} ${x2},${y2}` : horizontal ? `H${a.data.printBus ?? (x1 + x2) / 2} V${y2} H${x2}` : `V${a.data.printBus ?? (y1 + y2) / 2} H${x2} V${y2}`}" fill="none" stroke="#304e3c" stroke-width="${lineWidth}" stroke-linejoin="round"/>`;
+          b.position.x + (horizontal ? PRINT_CARD_WIDTH : PRINT_CARD_WIDTH / 2),
+        y2 = b.position.y + (horizontal ? nodeH(b) / 2 : upward ? nodeH(b) : 0);
+      const path = b.data.printRoute
+        ? routePath(b.data.printRoute)
+        : horizontal
+          ? `M${x1},${y1} H${(x1 + x2) / 2} V${y2} H${x2}`
+          : `M${x1},${y1} V${(y1 + y2) / 2} H${x2} V${y2}`;
+      return `<path data-source="${escape(e.source)}" data-target="${escape(e.target)}" d="${path}" fill="none" stroke="#304e3c" stroke-width="${lineWidth}" stroke-linejoin="round"/>`;
     })
     .join("");
   const cards = nodes
     .map((n) => {
       const p = n.data.person,
-        h = nodeH(n),
-        lines = wrapName(nameOf(n));
-      if (heritage) {
-        const root = !!n.data.root,
-          side = n.data.leafSide ?? 1,
-          center = root ? 120 : side > 0 ? 170 : 70;
-        return `<g data-person="${escape(n.id)}" transform="translate(${n.position.x} ${n.position.y})">${root ? trunkOrnament() + `<rect x="45" y="197" width="150" height="${n.data.showStatus ? 75 : 58}" rx="3" fill="${p.status === 2 ? "#c5bca5" : "#e9dfc3"}" stroke="#665c43" stroke-width="2"/>` : `<path d="M120 130 Q120 101 ${side > 0 ? 105 : 135} 77" fill="none" stroke="#665d46" stroke-width="2"/><g transform="translate(${side > 0 ? 100 : 0} 3) scale(.875 .9)"><g transform="${side > 0 ? "" : "translate(160 0) scale(-1 1)"}">${leafOrnament(p.status === 2, n.data.selected)}</g></g>`}<text x="${center}" y="${root ? 228 : 47}" text-anchor="middle" direction="rtl" font-size="${nameOf(n).length > 8 ? 18 : 22}" font-weight="bold" fill="#39382d">${escape(nameOf(n))}</text>${n.data.showStatus ? `<text x="${center}" y="${root ? 248 : 64}" text-anchor="middle" direction="rtl" font-size="9">${p.status === 1 ? "حي" : "متوفى — رحمه الله"}</text>` : ""}</g>`;
-      }
+        h = nodeH(n);
       const nameLines = printNameLines(nameOf(n));
       const nameY =
         (h - (n.data.showStatus ? 14 : 0) - nameLines.length * 19) / 2 + 15;
@@ -343,18 +293,23 @@ export function buildPrintDocument(
 ) {
   if (!nodes.length)
     throw new Error("لا توجد أسماء ضمن الأجيال المختارة للطباعة");
-  if (options.design !== "heritage")
-    nodes = printTreeLayout(nodes, edges, horizontal, upward);
-  const minX = Math.min(...nodes.map((n) => n.position.x)) - 8,
-    minY = Math.min(...nodes.map((n) => n.position.y)) - 8,
-    width = Math.max(...nodes.map((n) => n.position.x + nodeW(n))) - minX + 8,
-    height = Math.max(...nodes.map((n) => n.position.y + nodeH(n))) - minY + 8;
-  const plan = printPlan(width, height, options);
+  const paper = printPlan(1, 1, options);
+  nodes = printTreeLayout(
+    nodes,
+    edges,
+    horizontal,
+    upward,
+    { width: paper.usableW, height: paper.usableH },
+    false,
+    options.gap ?? 28,
+  );
+  const bounds = printBounds(nodes);
+  const plan = printPlan(bounds.width + 16, bounds.height + 16, options);
   const requestedWidth =
     options.autoCardSize === true
       ? Math.max(12, Math.min(28, Math.min(plan.usableW, plan.usableH) / 12))
       : options.cardWidth;
-  if (options.design !== "heritage") {
+  {
     const cardScale = requestedWidth / PRINT_CARD_WIDTH;
     plan.scale =
       options.mode === "fit" ? Math.min(plan.scale, cardScale) : cardScale;
@@ -370,32 +325,38 @@ export function buildPrintDocument(
       plan.usableH / (horizontal ? maxH : 2 * maxH + 28),
     );
   }
-  const balanced =
-    options.mode === "fit" && options.design === "heritage"
-      ? spreadArtworkToPage(nodes, plan.usableW, plan.usableH, nodeW, nodeH)
-      : null;
-  if (balanced) plan.scale = balanced.scale;
-  const viewW = balanced?.width ?? plan.usableW / plan.scale,
-    viewH = balanced?.height ?? plan.usableH / plan.scale;
-  const pages: FamilyPrintPage[] = balanced
-    ? [
-        {
-          nodes: balanced.nodes,
-          edges,
-          label: "توزيع متوازن حسب الورقة",
-          viewX: 0,
-          viewY: 0,
-        },
-      ]
-    : options.mode === "tiles"
-      ? familyPrintPages(nodes, edges, horizontal, viewW, viewH, upward)
+  const viewW = plan.usableW / plan.scale,
+    viewH = plan.usableH / plan.scale;
+  const pages: FamilyPrintPage[] =
+    options.mode === "tiles"
+      ? familyPrintPages(nodes, edges, horizontal, viewW, viewH, upward).map(
+          (page) => ({
+            ...page,
+            nodes: spreadPrintNodes(
+              page.nodes,
+              page.edges,
+              horizontal,
+              upward,
+              viewW,
+              viewH,
+              0,
+            ),
+          }),
+        )
       : [
           {
-            nodes,
+            nodes: spreadPrintNodes(
+              nodes,
+              edges,
+              horizontal,
+              upward,
+              viewW,
+              viewH,
+            ),
             edges,
-            label: "شجرة متصلة — الاسم فقط",
-            viewX: minX - (viewW - width) / 2,
-            viewY: minY - (viewH - height) / 2,
+            label: "مجموعات نسب مرتبة حسب مساحة الورق — الاسم فقط",
+            viewX: 0,
+            viewY: 0,
           },
         ];
   plan.pages = pages.length;
@@ -404,13 +365,12 @@ export function buildPrintDocument(
   const content = pages
     .map(
       (page, i) =>
-        `<section class="sheet"><header><span>${options.design === "heritage" ? "الشجرة التراثية" : "شجرة العائلة"} · ${escape(page.label)} · ${escape(options.generationLabel ?? "كل الأجيال")}</span><small>صفحة ${i + 1}/${pages.length} · ${balanced ? `احتواء كامل · ${horizontal ? "أفقي" : upward ? "شجرة صاعدة" : "عمودي"}` : horizontal ? "شجرة أفقية متصلة" : upward ? "شجرة صاعدة متصلة" : "شجرة عمودية متصلة"}</small></header><svg xmlns="http://www.w3.org/2000/svg" width="${plan.usableW}mm" height="${plan.usableH}mm" viewBox="${page.viewX} ${page.viewY} ${viewW} ${viewH}" style="font-family:Tahoma,Arial,sans-serif;${options.design === "heritage" ? "background:#eee3c7" : ""}">${drawing(page.nodes, page.edges, horizontal, upward, options.design === "heritage", Math.max(1, 0.18 / plan.scale))}</svg></section>`,
+        `<section class="sheet"><header><span>شجرة العائلة · ${escape(page.label)} · ${escape(options.generationLabel ?? "كل الأجيال")}</span><small>صفحة ${i + 1}/${pages.length} · ${horizontal ? "شجرة أفقية متصلة" : upward ? "شجرة صاعدة متصلة" : "شجرة عمودية متصلة"}</small></header><svg xmlns="http://www.w3.org/2000/svg" width="${plan.usableW}mm" height="${plan.usableH}mm" viewBox="${page.viewX} ${page.viewY} ${viewW} ${viewH}" style="font-family:Tahoma,Arial,sans-serif;">${drawing(page.nodes, page.edges, horizontal, upward, Math.max(1, 0.18 / plan.scale))}</svg></section>`,
     )
     .join("");
   return {
     plan,
     pages,
-    balanced,
-    html: `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>طباعة شجرة العائلة</title><style>@page{size:${plan.pw}mm ${plan.ph}mm;margin:10mm}*{box-sizing:border-box}body{margin:0;color:#254735;font-family:Tahoma,Arial,sans-serif}.sheet{width:${plan.usableW}mm;break-after:page;break-inside:avoid}.sheet:last-child{break-after:auto}header span{max-width:80%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}header{height:15mm;display:flex;justify-content:space-between;font-size:13px}small{font-size:10px}svg{display:block;direction:ltr}aside{padding:15px;background:#eff5ec;margin-bottom:15px}button{padding:10px 20px;cursor:pointer}@media print{aside{display:none}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}@media screen{.sheet{margin:20px auto;box-shadow:0 0 0 1px #ddd}}</style></head><body><aside>اختر «حفظ بتنسيق PDF» من الطابعات. اضبط المقياس 100٪ والهوامش 10 مم وأوقف رؤوس وتذييلات المتصفح. ${options.mode === "tiles" ? "كل بطاقة كاملة في صفحة، والأب مع أبنائه المباشرين. إذا كثر الأبناء يتكرر الأب في صفحات المتابعة؛ تستكمل الأحفاد في صفحات آبائهم." : "شجرة متصلة ببطاقات أسماء فقط؛ لا تتغير مجموعات الأبناء أو العلاقات لملء الفراغ. يمكن اختيار ورق أكبر أو صفحات فروع لزيادة وضوح العائلات الكبيرة."} عدد الصفحات: ${pages.length}. عرض البطاقة الفعلي: ${(plan.scale * (options.design === "heritage" ? 240 : PRINT_CARD_WIDTH)).toFixed(1)} مم.${options.mode === "fit" ? ` حجم خط الاسم التقريبي: ${((16 * plan.scale * 72) / 25.4).toFixed(1)} نقطة.${(16 * plan.scale * 72) / 25.4 < 7 ? " لقراءة أوضح اختر ورقًا أكبر أو نطاق أفراد أقل." : ""}` : ""}<br><button onclick="window.print()">طباعة / حفظ PDF</button></aside>${content}</body></html>`,
+    html: `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>طباعة شجرة العائلة</title><style>@page{size:${plan.pw}mm ${plan.ph}mm;margin:10mm}*{box-sizing:border-box}body{margin:0;color:#254735;font-family:Tahoma,Arial,sans-serif}.sheet{width:${plan.usableW}mm;break-after:page;break-inside:avoid}.sheet:last-child{break-after:auto}header span{max-width:80%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}header{height:15mm;display:flex;justify-content:space-between;font-size:13px}small{font-size:10px}svg{display:block;direction:ltr}aside{padding:15px;background:#eff5ec;margin-bottom:15px}button{padding:10px 20px;cursor:pointer}@media print{aside{display:none}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}@media screen{.sheet{margin:20px auto;box-shadow:0 0 0 1px #ddd}}</style></head><body><aside>اختر «حفظ بتنسيق PDF» من الطابعات. اضبط المقياس 100٪ والهوامش 10 مم وأوقف رؤوس وتذييلات المتصفح. ${options.mode === "tiles" ? "كل بطاقة كاملة في صفحة، والأب مع أبنائه المباشرين. إذا كثر الأبناء يتكرر الأب في صفحات المتابعة؛ تستكمل الأحفاد في صفحات آبائهم." : "شجرة متصلة ببطاقات أسماء فقط؛ المجموعات موزعة حسب الورق مع حفظ علاقات الأبوة وترتيب الإخوة. يمكن اختيار ورق أكبر أو صفحات فروع لزيادة وضوح العائلات الكبيرة."} عدد الصفحات: ${pages.length}. عرض البطاقة الفعلي: ${(plan.scale * PRINT_CARD_WIDTH).toFixed(1)} مم.${options.mode === "fit" ? ` حجم خط الاسم التقريبي: ${((16 * plan.scale * 72) / 25.4).toFixed(1)} نقطة.${(16 * plan.scale * 72) / 25.4 < 7 ? " لقراءة أوضح اختر ورقًا أكبر أو نطاق أفراد أقل." : ""}` : ""}<br><button onclick="window.print()">طباعة / حفظ PDF</button></aside>${content}</body></html>`,
   };
 }

@@ -1,5 +1,3 @@
-import { heritageTreeLayout } from "./heritage";
-import { compactTreeLayout } from "./layout";
 import { filterStatus } from "./presentation";
 import type { StatusFilter } from "./presentation";
 import { generationRange, firstName } from "./presentation";
@@ -12,7 +10,6 @@ import { buildPrintDocument, paperSizes } from "./export";
 import type { PrintNode, PrintOptions } from "./export";
 export default function ExportControls({
   nodes,
-  edges,
   people,
   family,
   horizontal,
@@ -21,10 +18,8 @@ export default function ExportControls({
   gap,
   showStatus,
   status,
-  heritage,
 }: {
   nodes: PrintNode[];
-  edges: { source: string; target: string }[];
   people: Person[];
   family: FamilyAnalysis;
   horizontal: boolean;
@@ -33,7 +28,6 @@ export default function ExportControls({
   gap: number;
   showStatus: boolean;
   status: StatusFilter;
-  heritage: boolean;
 }) {
   const [open, setOpen] = useState(false),
     [scope, setScope] = useState("visible"),
@@ -64,23 +58,14 @@ export default function ExportControls({
     [scope, people, nodes, family, fromGeneration, toGeneration, printStatus],
   );
   const printData = useMemo(() => {
-    const positions = heritage
-        ? heritageTreeLayout(targetPeople, gap, printShowStatus)
-        : compactTreeLayout(
-            targetPeople,
-            horizontal,
-            upward,
-            gap,
-            printShowStatus,
-          ),
-      ids = new Set(targetPeople.map((p) => p.id)),
+    const ids = new Set(targetPeople.map((p) => p.id)),
       selectedIds = new Set(
         nodes.filter((n) => n.data.selected).map((n) => n.id),
       );
     return {
       nodes: targetPeople.map((p) => ({
         id: p.id,
-        position: positions.get(p.id)!,
+        position: { x: 0, y: 0 },
         data: {
           person: p,
           displayName: firstName(p.name),
@@ -88,8 +73,6 @@ export default function ExportControls({
           fullName: names.get(p.id) ?? p.name,
           showStatus: printShowStatus,
           selected: selectedIds.has(p.id),
-          heritage,
-          leafSide: 1,
           root: !ids.has(p.parentId),
           ...family.stats.get(p.id)!,
         },
@@ -100,7 +83,6 @@ export default function ExportControls({
     };
   }, [
     targetPeople,
-    heritage,
     horizontal,
     upward,
     gap,
@@ -298,48 +280,47 @@ export default function ExportControls({
                   <option value="fit">الشجرة كاملة في صفحة واحدة</option>
                 </select>
               </label>
-              {!heritage && (
-                <>
-                  <label className="status-toggle">
-                    <input
-                      type="checkbox"
-                      checked={options.autoCardSize !== false}
-                      onChange={(e) =>
-                        setOptions({
-                          ...options,
-                          autoCardSize: e.target.checked,
-                        })
-                      }
-                    />{" "}
-                    حجم بطاقات تلقائي بحسب الورق
-                  </label>
-                  <label>
-                    عرض بطاقة الاسم المطلوب (مم)
-                    <input
-                      aria-label="عرض بطاقة الاسم للطباعة"
-                      type="number"
-                      min="8"
-                      max="80"
-                      step="1"
-                      disabled={options.autoCardSize !== false}
-                      value={options.cardWidth}
-                      onChange={(e) =>
-                        setOptions({
-                          ...options,
-                          cardWidth: Number(e.target.value),
-                        })
-                      }
-                    />
-                  </label>
-                </>
-              )}
+              <>
+                <label className="status-toggle">
+                  <input
+                    type="checkbox"
+                    checked={options.autoCardSize !== false}
+                    onChange={(e) =>
+                      setOptions({
+                        ...options,
+                        autoCardSize: e.target.checked,
+                      })
+                    }
+                  />{" "}
+                  حجم بطاقات تلقائي بحسب الورق
+                </label>
+                <label>
+                  عرض بطاقة الاسم المطلوب (مم)
+                  <input
+                    aria-label="عرض بطاقة الاسم للطباعة"
+                    type="number"
+                    min="8"
+                    max="80"
+                    step="1"
+                    disabled={options.autoCardSize !== false}
+                    value={options.cardWidth}
+                    onChange={(e) =>
+                      setOptions({
+                        ...options,
+                        cardWidth: Number(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+              </>
             </div>
             <p className="notice">
-              الطباعة تحفظ شكل الشجرة ومجموعات الأبناء، والبطاقات تعرض الاسم
-              فقط. خطوط كل أب تتجه مباشرة إلى أبنائه. الصفحات العائلية تجمع الأب
-              مع أبنائه المباشرين دون قص البطاقات؛ عند كثرة الأبناء يتكرر الأب
-              على صفحات المتابعة، وتظهر الأحفاد في صفحات آبائهم. استخدم ورقًا
-              أكبر أو نطاق أجيال أصغر لجمع فرع أكبر في ورقة واحدة.
+              الطباعة توزع مجموعات الأبناء حسب الورق عرضًا وطولًا، والبطاقات
+              تعرض الاسم فقط. خطوط كل أب تتجه مباشرة إلى أبنائه. الصفحات
+              العائلية تجمع الأب مع أبنائه المباشرين دون قص البطاقات؛ عند كثرة
+              الأبناء يتكرر الأب على صفحات المتابعة، وتظهر الأحفاد في صفحات
+              آبائهم. استخدم ورقًا أكبر أو نطاق أجيال أصغر لجمع فرع أكبر في ورقة
+              واحدة.
             </p>
             <p className="muted">
               عند احتواء شجرة كبيرة في ورقة واحدة قد يقل المقاس الفعلي للبطاقة
@@ -366,7 +347,7 @@ export default function ExportControls({
                       horizontal,
                       {
                         ...options,
-                        design: heritage ? "heritage" : "classic",
+                        gap,
                         generationLabel: `الأجيال ${fromGeneration} إلى ${toGeneration || family.generations.length}`,
                       },
                       upward,
